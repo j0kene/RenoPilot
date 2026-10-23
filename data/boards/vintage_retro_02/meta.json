@@ -1,0 +1,35 @@
+{
+  "board_id": "vintage_retro_02",
+  "query": "vintage retro interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "qxsTCSx3t5g",
+      "photographer": "Tom Caillarec",
+      "profile": "https://unsplash.com/@tomca_tv",
+      "page": "https://unsplash.com/photos/orange-futuristic-structure-inside-a-building-with-people-qxsTCSx3t5g"
+    },
+    {
+      "file": "02.jpg",
+      "id": "J_30KpjyTgk",
+      "photographer": "Sofie D.",
+      "profile": "https://unsplash.com/@needeeja",
+      "page": "https://unsplash.com/photos/retro-living-room-with-vintage-television-and-bar-J_30KpjyTgk"
+    },
+    {
+      "file": "03.jpg",
+      "id": "-jmawWIxgm4",
+      "photographer": "The Prototype",
+      "profile": "https://unsplash.com/@theprototype",
+      "page": "https://unsplash.com/photos/a-living-room-filled-with-furniture-and-striped-walls--jmawWIxgm4"
+    },
+    {
+      "file": "04.jpg",
+      "id": "9tyyennFYgE",
+      "photographer": "Peter Herrmann",
+      "profile": "https://unsplash.com/@tama66",
+      "page": "https://unsplash.com/photos/a-living-room-with-a-couch-table-and-chairs-9tyyennFYgE"
+    }
+  ]
+}

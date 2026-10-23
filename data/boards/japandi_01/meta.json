@@ -1,0 +1,35 @@
+{
+  "board_id": "japandi_01",
+  "query": "japandi interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "77JACslA8G0",
+      "photographer": "Katja Rooke",
+      "profile": "https://unsplash.com/@rooke",
+      "page": "https://unsplash.com/photos/gray-2-seat-sofa-near-brown-wooden-coffee-table-77JACslA8G0"
+    },
+    {
+      "file": "02.jpg",
+      "id": "SoNaNOFT974",
+      "photographer": "Daniel Chen",
+      "profile": "https://unsplash.com/@dchestudio",
+      "page": "https://unsplash.com/photos/brown-wooden-bench-near-window-SoNaNOFT974"
+    },
+    {
+      "file": "03.jpg",
+      "id": "OihXclRy8n0",
+      "photographer": "Thufeil M",
+      "profile": "https://unsplash.com/@thufeilm23",
+      "page": "https://unsplash.com/photos/a-bedroom-with-a-large-bed-and-a-round-mirror-on-the-wall-OihXclRy8n0"
+    },
+    {
+      "file": "04.jpg",
+      "id": "Cmq9Sy5PW18",
+      "photographer": "JALG TV Stand",
+      "profile": "https://unsplash.com/@jalgtvstand",
+      "page": "https://unsplash.com/photos/a-living-room-with-a-green-couch-and-a-white-lamp-Cmq9Sy5PW18"
+    }
+  ]
+}

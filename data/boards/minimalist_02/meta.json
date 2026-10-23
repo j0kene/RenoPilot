@@ -1,0 +1,35 @@
+{
+  "board_id": "minimalist_02",
+  "query": "minimalist interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "U39FPHKfDu0",
+      "photographer": "Kam Idris",
+      "profile": "https://unsplash.com/@ka_idris",
+      "page": "https://unsplash.com/photos/a-room-with-a-couch-and-a-table-U39FPHKfDu0"
+    },
+    {
+      "file": "02.jpg",
+      "id": "al0srakHkkY",
+      "photographer": "Visual Laurence",
+      "profile": "https://unsplash.com/@visuallaurence",
+      "page": "https://unsplash.com/photos/a-chair-and-a-table-in-a-room-al0srakHkkY"
+    },
+    {
+      "file": "03.jpg",
+      "id": "DLD5LvnFblU",
+      "photographer": "Andrew Neel",
+      "profile": "https://unsplash.com/@andrewtneel",
+      "page": "https://unsplash.com/photos/ladder-stool-and-snake-plant-DLD5LvnFblU"
+    },
+    {
+      "file": "04.jpg",
+      "id": "5l6PTBM2smI",
+      "photographer": "Deconovo",
+      "profile": "https://unsplash.com/@deconovo",
+      "page": "https://unsplash.com/photos/white-and-brown-spiral-staircase-5l6PTBM2smI"
+    }
+  ]
+}

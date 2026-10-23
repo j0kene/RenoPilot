@@ -1,0 +1,35 @@
+{
+  "board_id": "mid_century_modern_02",
+  "query": "mid century modern interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "hmcNefbrr64",
+      "photographer": "Urban Vintage",
+      "profile": "https://unsplash.com/@urban_vintage",
+      "page": "https://unsplash.com/photos/a-room-with-a-white-wall-and-a-white-chair-hmcNefbrr64"
+    },
+    {
+      "file": "02.jpg",
+      "id": "t8tZwRtE9HA",
+      "photographer": "Griffin Taylor",
+      "profile": "https://unsplash.com/@thejollyllama",
+      "page": "https://unsplash.com/photos/a-group-of-chairs-in-a-room-t8tZwRtE9HA"
+    },
+    {
+      "file": "03.jpg",
+      "id": "nqe2xPMfdb0",
+      "photographer": "Sean Foster",
+      "profile": "https://unsplash.com/@fosterious",
+      "page": "https://unsplash.com/photos/a-chair-and-ottoman-in-a-living-room-nqe2xPMfdb0"
+    },
+    {
+      "file": "04.jpg",
+      "id": "OSdMOpfDPwc",
+      "photographer": "Artyom Kabajev",
+      "profile": "https://unsplash.com/@artfilm",
+      "page": "https://unsplash.com/photos/white-and-red-bicycle-near-green-plant-OSdMOpfDPwc"
+    }
+  ]
+}

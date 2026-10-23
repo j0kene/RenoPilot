@@ -1,0 +1,35 @@
+{
+  "board_id": "coastal_02",
+  "query": "coastal interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "zLCTdR6W8N4",
+      "photographer": "Polina Kuzovkova",
+      "profile": "https://unsplash.com/@p_kuzovkova",
+      "page": "https://unsplash.com/photos/modern-room-with-ocean-view-at-sunset-zLCTdR6W8N4"
+    },
+    {
+      "file": "02.jpg",
+      "id": "QStrN6Pr4wM",
+      "photographer": "Ruben Aster",
+      "profile": "https://unsplash.com/@ruben_aster",
+      "page": "https://unsplash.com/photos/lamp-on-table-with-ocean-view-at-sunset-QStrN6Pr4wM"
+    },
+    {
+      "file": "03.jpg",
+      "id": "LCajEey_q68",
+      "photographer": "Devon MacKay",
+      "profile": "https://unsplash.com/@devon_mac",
+      "page": "https://unsplash.com/photos/turquoise-sofa-in-wood-cabin-LCajEey_q68"
+    },
+    {
+      "file": "04.jpg",
+      "id": "hskb_rJhHuw",
+      "photographer": "Thamy N.",
+      "profile": "https://unsplash.com/@thamyn",
+      "page": "https://unsplash.com/photos/curtains-with-heart-decorations-frame-ocean-view-hskb_rJhHuw"
+    }
+  ]
+}

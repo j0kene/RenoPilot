@@ -1,0 +1,35 @@
+{
+  "board_id": "muji_01",
+  "query": "muji interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "ipfOFhgDgUc",
+      "photographer": "Declan Sun",
+      "profile": "https://unsplash.com/@declansun",
+      "page": "https://unsplash.com/photos/coffee-mugs-and-bag-of-coffee-beans-on-display-ipfOFhgDgUc"
+    },
+    {
+      "file": "02.jpg",
+      "id": "C6_WVu-U-os",
+      "photographer": "Gilbert Ng",
+      "profile": "https://unsplash.com/@zhekai_39",
+      "page": "https://unsplash.com/photos/a-close-up-of-a-sign-on-the-side-of-a-building-C6_WVu-U-os"
+    },
+    {
+      "file": "03.jpg",
+      "id": "q58iRkraZ-Y",
+      "photographer": "C Chiba",
+      "profile": "https://unsplash.com/@cchiba000",
+      "page": "https://unsplash.com/photos/a-table-and-chairs-in-a-room-with-a-window-q58iRkraZ-Y"
+    },
+    {
+      "file": "04.jpg",
+      "id": "DeYym9Ji6LI",
+      "photographer": "Ronnarit Jirathanyakorn",
+      "profile": "https://unsplash.com/@studioplayground",
+      "page": "https://unsplash.com/photos/white-ceramic-mug-on-brown-wooden-nightstand-DeYym9Ji6LI"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "board_id": "coastal_01",
+  "query": "coastal interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "tPz3Lhh3z_4",
+      "photographer": "Brian Zajac",
+      "profile": "https://unsplash.com/@brianzajac",
+      "page": "https://unsplash.com/photos/modern-living-room-with-neutral-tones-and-natural-elements-tPz3Lhh3z_4"
+    },
+    {
+      "file": "02.jpg",
+      "id": "SrioT6tdWII",
+      "photographer": "Collov Home Design",
+      "profile": "https://unsplash.com/@collovhome",
+      "page": "https://unsplash.com/photos/brown-wooden-round-table-near-white-sofa-SrioT6tdWII"
+    },
+    {
+      "file": "03.jpg",
+      "id": "Aw1o_ObEDYk",
+      "photographer": "Bryan Heng",
+      "profile": "https://unsplash.com/@bryan_hys",
+      "page": "https://unsplash.com/photos/bay-view-from-wood-paneled-room-Aw1o_ObEDYk"
+    },
+    {
+      "file": "04.jpg",
+      "id": "9ojG6_UJc58",
+      "photographer": "Leonardo Vargas",
+      "profile": "https://unsplash.com/@leovamexican",
+      "page": "https://unsplash.com/photos/cozy-reading-nook-with-ocean-view-and-armchair-9ojG6_UJc58"
+    }
+  ]
+}

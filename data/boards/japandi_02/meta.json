@@ -1,0 +1,35 @@
+{
+  "board_id": "japandi_02",
+  "query": "japandi interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "DsH3VOZanYA",
+      "photographer": "Don Kaveen",
+      "profile": "https://unsplash.com/@donkaveen",
+      "page": "https://unsplash.com/photos/brown-wooden-table-with-chairs-DsH3VOZanYA"
+    },
+    {
+      "file": "02.jpg",
+      "id": "Xa8sNMp5UJI",
+      "photographer": "Sreia Pythia",
+      "profile": "https://unsplash.com/@sreiapythia",
+      "page": "https://unsplash.com/photos/a-bedroom-with-a-bed-dresser-and-table-Xa8sNMp5UJI"
+    },
+    {
+      "file": "03.jpg",
+      "id": "ahAJm5vF__4",
+      "photographer": "Lala Azizli",
+      "profile": "https://unsplash.com/@lazizli",
+      "page": "https://unsplash.com/photos/a-restaurant-with-a-large-neon-sign-on-the-wall-ahAJm5vF__4"
+    },
+    {
+      "file": "04.jpg",
+      "id": "_DMAQOJxFyo",
+      "photographer": "Margo Evardson",
+      "profile": "https://unsplash.com/@stadinstudio",
+      "page": "https://unsplash.com/photos/interior-design-display-with-furniture-and-decor-_DMAQOJxFyo"
+    }
+  ]
+}

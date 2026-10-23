@@ -1,0 +1,35 @@
+{
+  "board_id": "modern_luxe_02",
+  "query": "luxury modern interior marble",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "MfbQOer86JI",
+      "photographer": "andy chiu",
+      "profile": "https://unsplash.com/@mrchiu",
+      "page": "https://unsplash.com/photos/modern-living-room-with-stylish-furniture-and-ambient-lighting-MfbQOer86JI"
+    },
+    {
+      "file": "02.jpg",
+      "id": "0pUpdwWxhD4",
+      "photographer": "Franco Debartolo",
+      "profile": "https://unsplash.com/@francotheshooter",
+      "page": "https://unsplash.com/photos/elegant-office-interior-with-white-chairs-behind-a-grid-window-0pUpdwWxhD4"
+    },
+    {
+      "file": "03.jpg",
+      "id": "sDUsXuALhEw",
+      "photographer": "Zeeva Syahputri",
+      "profile": "https://unsplash.com/@kiiibodesiiign",
+      "page": "https://unsplash.com/photos/modern-kitchen-island-with-green-marble-countertop-sDUsXuALhEw"
+    },
+    {
+      "file": "04.jpg",
+      "id": "CU8IHRQoaXI",
+      "photographer": "engin akyurt",
+      "profile": "https://unsplash.com/@enginakyurt",
+      "page": "https://unsplash.com/photos/pale-pink-and-white-marble-with-natural-veining-CU8IHRQoaXI"
+    }
+  ]
+}

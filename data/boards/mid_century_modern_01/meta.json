@@ -1,0 +1,35 @@
+{
+  "board_id": "mid_century_modern_01",
+  "query": "mid century modern interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "4_jQL4JCS98",
+      "photographer": "Collov Home Design",
+      "profile": "https://unsplash.com/@collovhome",
+      "page": "https://unsplash.com/photos/living-room-with-brown-sofa-and-glass-window-4_jQL4JCS98"
+    },
+    {
+      "file": "02.jpg",
+      "id": "jqFpFBzz0Tg",
+      "photographer": "Phebe Tan",
+      "profile": "https://unsplash.com/@phebechristine",
+      "page": "https://unsplash.com/photos/flat-screen-tv-turned-off-jqFpFBzz0Tg"
+    },
+    {
+      "file": "03.jpg",
+      "id": "TDIdPmW2P9k",
+      "photographer": "Kate Darmody",
+      "profile": "https://unsplash.com/@kdarmody",
+      "page": "https://unsplash.com/photos/white-and-brown-table-lamp-on-brown-wooden-table-TDIdPmW2P9k"
+    },
+    {
+      "file": "04.jpg",
+      "id": "7ptbiEPxKMQ",
+      "photographer": "Max Harlynking",
+      "profile": "https://unsplash.com/@harlynkingm",
+      "page": "https://unsplash.com/photos/a-living-room-with-a-couch-a-chair-and-a-table-7ptbiEPxKMQ"
+    }
+  ]
+}

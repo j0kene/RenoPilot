@@ -1,0 +1,35 @@
+{
+  "board_id": "classic_traditional_01",
+  "query": "classic traditional interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "kfV2Dt5TbmA",
+      "photographer": "Clay Banks",
+      "profile": "https://unsplash.com/@claybanks",
+      "page": "https://unsplash.com/photos/a-dining-room-table-with-a-vase-of-flowers-on-it-kfV2Dt5TbmA"
+    },
+    {
+      "file": "02.jpg",
+      "id": "s-yQgu9SiBA",
+      "photographer": "Magic Fan",
+      "profile": "https://unsplash.com/@magicunsplash",
+      "page": "https://unsplash.com/photos/two-windows-frame-a-portrait-in-an-old-fashioned-room-s-yQgu9SiBA"
+    },
+    {
+      "file": "03.jpg",
+      "id": "KDdqzjVYH1Q",
+      "photographer": "MChe Lee",
+      "profile": "https://unsplash.com/@mclee",
+      "page": "https://unsplash.com/photos/wooden-railing-in-a-dimly-lit-room-with-furniture-KDdqzjVYH1Q"
+    },
+    {
+      "file": "04.jpg",
+      "id": "ThzTxFHjK2w",
+      "photographer": "SOHAM BANERJEE",
+      "profile": "https://unsplash.com/@soham1991",
+      "page": "https://unsplash.com/photos/ornate-fireplace-with-floral-arrangements-and-framed-art-ThzTxFHjK2w"
+    }
+  ]
+}

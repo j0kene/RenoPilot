@@ -1,0 +1,35 @@
+{
+  "board_id": "modern_luxe_01",
+  "query": "luxury modern interior marble",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "LqGf5UvHCZ8",
+      "photographer": "Aalo Lens",
+      "profile": "https://unsplash.com/@aalolens",
+      "page": "https://unsplash.com/photos/modern-living-room-with-large-windows-and-comfortable-seating-LqGf5UvHCZ8"
+    },
+    {
+      "file": "02.jpg",
+      "id": "j6Gvemm2FnA",
+      "photographer": "Le Quan",
+      "profile": "https://unsplash.com/@mrkheu",
+      "page": "https://unsplash.com/photos/a-bedroom-with-a-large-bed-and-a-chair-j6Gvemm2FnA"
+    },
+    {
+      "file": "03.jpg",
+      "id": "3JdubjN5xTI",
+      "photographer": "Lotus Design N Print",
+      "profile": "https://unsplash.com/@lotusdnp",
+      "page": "https://unsplash.com/photos/a-kitchen-with-a-sink-and-a-window-3JdubjN5xTI"
+    },
+    {
+      "file": "04.jpg",
+      "id": "2us2J2mY7f0",
+      "photographer": "POOJAN THANEKAR",
+      "profile": "https://unsplash.com/@poojanclicks",
+      "page": "https://unsplash.com/photos/spacious-modern-living-room-with-stylish-sofas-and-large-television-2us2J2mY7f0"
+    }
+  ]
+}

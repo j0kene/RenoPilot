@@ -1,0 +1,93 @@
+"""Shared data contracts. Every node reads and writes these, so they are frozen early:
+the Compliance guard and the Pricing agent plug in by reading `Suggestion` and filling
+`verdict` / `price_quote`, without touching the graph.
+"""
+from __future__ import annotations
+
+from datetime import date
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
+from renopilot.vocab import COLOURS, ITEM_TYPES, MATERIALS, ROOMS, STYLE_TAGS
+
+StyleTag = Literal[STYLE_TAGS]          # type: ignore[valid-type]
+Colour = Literal[COLOURS]               # type: ignore[valid-type]
+Material = Literal[MATERIALS]           # type: ignore[valid-type]
+ItemType = Literal[ITEM_TYPES]          # type: ignore[valid-type]
+Room = Literal[ROOMS]                   # type: ignore[valid-type]
+WorkType = Literal["loose_furniture", "finish", "built_in"]
+Source = Literal["abo", "ikea_sg", "castlery", "taobao", "other_sg"]
+
+
+# --------------------------------------------------------------------------- the owner
+class ProjectProfile(BaseModel):
+    """What the owner tells us once. Budgets are SGD caps per single item of that type."""
+    flat_type: Optional[Literal["2-room", "3-room", "4-room", "5-room", "executive", "other"]] = None
+    completion_date: Optional[date] = Field(None, description="Block completion date (drives the 3-year finish rules)")
+    total_budget: Optional[float] = Field(None, ge=0, description="Total furniture budget, SGD")
+    budget_by_category: dict[str, float] = Field(default_factory=dict,
+                                                 description="item_type -> max SGD for one item")
+    notes: str = ""
+
+
+# --------------------------------------------------------------------------- the board
+class ItemSpec(BaseModel):
+    item_type: ItemType
+    description: str = Field(description="Short visual description, at most 20 words, e.g. "
+                                         "'low light-oak coffee table with rounded corners'")
+    colours: list[Colour] = Field(default_factory=list, max_length=3)
+    materials: list[Material] = Field(default_factory=list, max_length=3)
+    priority: Literal["must", "nice"] = "must"
+
+
+class StyleProfile(BaseModel):
+    style_tags: list[StyleTag] = Field(min_length=1, max_length=3, description="Most dominant first")
+    palette: list[Colour] = Field(min_length=1, max_length=6)
+    materials: list[Material] = Field(default_factory=list, max_length=6)
+    room: Room = "mixed"
+    items: list[ItemSpec] = Field(default_factory=list, max_length=12,
+                                  description="Distinct items visible on the board worth shopping for")
+    summary: str = Field(description="One sentence describing the look")
+
+
+# --------------------------------------------------------------------------- the catalog
+class Product(BaseModel):
+    id: str
+    source: Source
+    item_type: ItemType
+    title: str
+    colour: str = ""
+    material: str = ""
+    dims: str = ""
+    price: Optional[float] = None          # as listed
+    currency: Optional[str] = None         # SGD | CNY | ...
+    price_sgd: Optional[float] = None      # listed price in SGD (indicative; landed cost is Pricing's job)
+    url: str = ""
+    image_path: str = ""
+    retrieved_at: str = ""
+
+
+# --------------------------------------------------------------------------- downstream
+class Verdict(BaseModel):
+    """Written by the Compliance guard. The guard's verdict cannot be overridden by any agent."""
+    decision: Literal["allow", "allow_with_permit", "block", "escalate"]
+    reason: str = ""
+    rule_id: Optional[str] = None
+    alternative: Optional[str] = None
+    citation: Optional[str] = None
+
+
+class Suggestion(BaseModel):
+    product_id: Optional[str] = None        # None for a finish/built-in the board asked for but we don't sell
+    item_type: ItemType
+    work_type: WorkType
+    title: str = ""
+    reason: str = ""                        # one line: why this matches the board
+    score: float = 0.0
+    price_sgd: Optional[float] = None
+    url: str = ""
+    image_path: str = ""
+    verdict: Optional[Verdict] = None       # Compliance guard
+    price_quote: Optional[dict] = None      # Pricing agent (landed cost breakdown), reserved
+    status: Literal["proposed", "approved", "rejected"] = "proposed"

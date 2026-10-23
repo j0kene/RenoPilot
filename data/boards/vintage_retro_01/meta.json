@@ -1,0 +1,35 @@
+{
+  "board_id": "vintage_retro_01",
+  "query": "vintage retro interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "oujKSaZlMFY",
+      "photographer": "Fujiphilm",
+      "profile": "https://unsplash.com/@fujiphilm",
+      "page": "https://unsplash.com/photos/brown-wooden-chairs-table-and-cabinet-oujKSaZlMFY"
+    },
+    {
+      "file": "02.jpg",
+      "id": "HuIJUp6gTDI",
+      "photographer": "Dayanara Peenee",
+      "profile": "https://unsplash.com/@dayanaranacion",
+      "page": "https://unsplash.com/photos/red-leather-bench-inside-room-HuIJUp6gTDI"
+    },
+    {
+      "file": "03.jpg",
+      "id": "d6xmGBg5_-4",
+      "photographer": "Ori Song",
+      "profile": "https://unsplash.com/@ori_foto",
+      "page": "https://unsplash.com/photos/vintage-car-on-table-d6xmGBg5_-4"
+    },
+    {
+      "file": "04.jpg",
+      "id": "bd9gG72uUK4",
+      "photographer": "mohammed ahmed",
+      "profile": "https://unsplash.com/@hama_assets",
+      "page": "https://unsplash.com/photos/a-quirky-restaurant-interior-with-a-yellow-vw-truck-bd9gG72uUK4"
+    }
+  ]
+}

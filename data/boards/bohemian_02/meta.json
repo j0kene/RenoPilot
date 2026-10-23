@@ -1,0 +1,35 @@
+{
+  "board_id": "bohemian_02",
+  "query": "bohemian interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "aLU15lxMh4g",
+      "photographer": "Abbey Houston",
+      "profile": "https://unsplash.com/@abhou636",
+      "page": "https://unsplash.com/photos/white-wooden-shelf-with-books-and-brown-wicker-basket-aLU15lxMh4g"
+    },
+    {
+      "file": "02.jpg",
+      "id": "ZN9LhLYCVko",
+      "photographer": "Cole Keister",
+      "profile": "https://unsplash.com/@coleito",
+      "page": "https://unsplash.com/photos/white-and-brown-floral-textile-on-white-bed-ZN9LhLYCVko"
+    },
+    {
+      "file": "03.jpg",
+      "id": "TDIdPmW2P9k",
+      "photographer": "Kate Darmody",
+      "profile": "https://unsplash.com/@kdarmody",
+      "page": "https://unsplash.com/photos/white-and-brown-table-lamp-on-brown-wooden-table-TDIdPmW2P9k"
+    },
+    {
+      "file": "04.jpg",
+      "id": "7tOV35hnkao",
+      "photographer": "Manja Vitolic",
+      "profile": "https://unsplash.com/@madhatterzone",
+      "page": "https://unsplash.com/photos/assorted-wall-decors-7tOV35hnkao"
+    }
+  ]
+}

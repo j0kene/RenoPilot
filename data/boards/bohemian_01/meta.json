@@ -1,0 +1,35 @@
+{
+  "board_id": "bohemian_01",
+  "query": "bohemian interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "m3Vq2LEAkfQ",
+      "photographer": "Collov Home Design",
+      "profile": "https://unsplash.com/@collovhome",
+      "page": "https://unsplash.com/photos/white-and-black-sofa-near-brown-wooden-coffee-table-m3Vq2LEAkfQ"
+    },
+    {
+      "file": "02.jpg",
+      "id": "6CJg-fOTYs4",
+      "photographer": "Curology",
+      "profile": "https://unsplash.com/@curology",
+      "page": "https://unsplash.com/photos/brown-leather-sofa-and-two-pink-sofa-chair-6CJg-fOTYs4"
+    },
+    {
+      "file": "03.jpg",
+      "id": "1LyAwq5OVss",
+      "photographer": "Steph Wilson",
+      "profile": "https://unsplash.com/@stephwilll",
+      "page": "https://unsplash.com/photos/a-living-room-with-a-blue-couch-and-lots-of-pictures-on-the-wall-1LyAwq5OVss"
+    },
+    {
+      "file": "04.jpg",
+      "id": "x9eBmXEkDOs",
+      "photographer": "Deconovo",
+      "profile": "https://unsplash.com/@deconovo",
+      "page": "https://unsplash.com/photos/white-and-brown-bathtub-near-white-curtains-x9eBmXEkDOs"
+    }
+  ]
+}

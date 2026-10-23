@@ -1,0 +1,35 @@
+{
+  "board_id": "minimalist_01",
+  "query": "minimalist interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "g_5UyVBIX_k",
+      "photographer": "Pipcke",
+      "profile": "https://unsplash.com/@pipcke",
+      "page": "https://unsplash.com/photos/a-living-room-with-a-couch-and-a-table-g_5UyVBIX_k"
+    },
+    {
+      "file": "02.jpg",
+      "id": "nvzvOPQW0gc",
+      "photographer": "Bench Accounting",
+      "profile": "https://unsplash.com/@benchaccounting",
+      "page": "https://unsplash.com/photos/white-wooden-table-near-brown-chair-nvzvOPQW0gc"
+    },
+    {
+      "file": "03.jpg",
+      "id": "77JACslA8G0",
+      "photographer": "Katja Rooke",
+      "profile": "https://unsplash.com/@rooke",
+      "page": "https://unsplash.com/photos/gray-2-seat-sofa-near-brown-wooden-coffee-table-77JACslA8G0"
+    },
+    {
+      "file": "04.jpg",
+      "id": "vIbxvHj9m9g",
+      "photographer": "Prydumano Design",
+      "profile": "https://unsplash.com/@prydumanodesign",
+      "page": "https://unsplash.com/photos/a-modern-living-room-with-a-large-window-vIbxvHj9m9g"
+    }
+  ]
+}

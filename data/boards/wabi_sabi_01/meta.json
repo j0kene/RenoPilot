@@ -1,0 +1,35 @@
+{
+  "board_id": "wabi_sabi_01",
+  "query": "wabi sabi interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "d84kZacg3tc",
+      "photographer": "Taitopia Render",
+      "profile": "https://unsplash.com/@taitopiarender",
+      "page": "https://unsplash.com/photos/a-stack-of-rocks-sitting-on-top-of-a-table-d84kZacg3tc"
+    },
+    {
+      "file": "02.jpg",
+      "id": "7lZxYqwDNXo",
+      "photographer": "Kam Idris",
+      "profile": "https://unsplash.com/@ka_idris",
+      "page": "https://unsplash.com/photos/a-dining-room-with-a-table-and-chairs-7lZxYqwDNXo"
+    },
+    {
+      "file": "03.jpg",
+      "id": "VEnwUhl8Vx4",
+      "photographer": "Amy Harrison",
+      "profile": "https://unsplash.com/@amy_harrison",
+      "page": "https://unsplash.com/photos/a-picture-of-a-bird-and-a-bowl-on-a-table-VEnwUhl8Vx4"
+    },
+    {
+      "file": "04.jpg",
+      "id": "8UtX54UQoQc",
+      "photographer": "jack berry",
+      "profile": "https://unsplash.com/@jackseeberry",
+      "page": "https://unsplash.com/photos/dark-wooden-cabinet-with-decorative-objects-on-shelves-8UtX54UQoQc"
+    }
+  ]
+}

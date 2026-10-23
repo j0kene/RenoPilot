@@ -1,0 +1,35 @@
+{
+  "board_id": "tropical_resort_01",
+  "query": "tropical resort interior rattan",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "5BzyDJqp0c4",
+      "photographer": "Alef Morais",
+      "profile": "https://unsplash.com/@alef_visuals",
+      "page": "https://unsplash.com/photos/modern-living-room-with-comfortable-sofas-and-wooden-flooring-5BzyDJqp0c4"
+    },
+    {
+      "file": "02.jpg",
+      "id": "qXjdjQ3AOc8",
+      "photographer": "Yoriko Hatada",
+      "profile": "https://unsplash.com/@yorikohatada",
+      "page": "https://unsplash.com/photos/a-living-room-with-a-couch-and-a-table-qXjdjQ3AOc8"
+    },
+    {
+      "file": "03.jpg",
+      "id": "1SDdYZTAbXE",
+      "photographer": "Bunly Hort",
+      "profile": "https://unsplash.com/@bunly1998",
+      "page": "https://unsplash.com/photos/a-couple-of-lights-1SDdYZTAbXE"
+    },
+    {
+      "file": "04.jpg",
+      "id": "v8PlE-T9Zxg",
+      "photographer": "Mennah Aman",
+      "profile": "https://unsplash.com/@bluefear",
+      "page": "https://unsplash.com/photos/a-room-with-a-couch-and-chairs-v8PlE-T9Zxg"
+    }
+  ]
+}

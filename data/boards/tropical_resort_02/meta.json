@@ -1,0 +1,35 @@
+{
+  "board_id": "tropical_resort_02",
+  "query": "tropical resort interior rattan",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "95m_FhgzOQk",
+      "photographer": "HamZa NOUASRIA",
+      "profile": "https://unsplash.com/@hamza01nsr",
+      "page": "https://unsplash.com/photos/a-couple-of-chairs-and-a-table-in-a-courtyard-with-palm-trees-95m_FhgzOQk"
+    },
+    {
+      "file": "02.jpg",
+      "id": "JzaftAd3WvA",
+      "photographer": "Rohit Salitra",
+      "profile": "https://unsplash.com/@rohitsalitra",
+      "page": "https://unsplash.com/photos/brown-wooden-chair-and-stool-beside-swimming-pool-JzaftAd3WvA"
+    },
+    {
+      "file": "03.jpg",
+      "id": "89B6mCd3RSY",
+      "photographer": "Chris Davey",
+      "profile": "https://unsplash.com/@ctdavey",
+      "page": "https://unsplash.com/photos/a-close-up-of-a-wooden-structure-with-a-blue-sky-in-the-background-89B6mCd3RSY"
+    },
+    {
+      "file": "04.jpg",
+      "id": "Z6PWdg9RsCg",
+      "photographer": "Nahima Aparicio",
+      "profile": "https://unsplash.com/@nahimaaparicio",
+      "page": "https://unsplash.com/photos/a-bedroom-with-a-brick-wall-and-a-white-bed-Z6PWdg9RsCg"
+    }
+  ]
+}

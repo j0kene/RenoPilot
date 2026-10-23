@@ -1,0 +1,35 @@
+{
+  "board_id": "industrial_02",
+  "query": "industrial loft interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "8ZwXVupRuJM",
+      "photographer": "Valentin Lacoste",
+      "profile": "https://unsplash.com/@valentinlacoste",
+      "page": "https://unsplash.com/photos/brick-wall-with-metal-door-8ZwXVupRuJM"
+    },
+    {
+      "file": "02.jpg",
+      "id": "lrMNUleVdQY",
+      "photographer": "Shahabudin Ibragimov",
+      "profile": "https://unsplash.com/@sb_dn",
+      "page": "https://unsplash.com/photos/dark-industrial-staircase-with-metal-railings-and-brick-wall-lrMNUleVdQY"
+    },
+    {
+      "file": "03.jpg",
+      "id": "w9dfw09PwYk",
+      "photographer": "Emanuel Haas",
+      "profile": "https://unsplash.com/@dermanuskript",
+      "page": "https://unsplash.com/photos/sunlight-streaming-into-rustic-barn-interior-with-hay-w9dfw09PwYk"
+    },
+    {
+      "file": "04.jpg",
+      "id": "nj16WYvE7OU",
+      "photographer": "Boris Izmaylov",
+      "profile": "https://unsplash.com/@borisizmaylov",
+      "page": "https://unsplash.com/photos/a-light-that-is-hanging-from-a-ceiling-nj16WYvE7OU"
+    }
+  ]
+}

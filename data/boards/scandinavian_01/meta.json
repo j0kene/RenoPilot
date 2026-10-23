@@ -1,0 +1,35 @@
+{
+  "board_id": "scandinavian_01",
+  "query": "scandinavian living room",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "UTWRDWMMaag",
+      "photographer": "Clay Banks",
+      "profile": "https://unsplash.com/@claybanks",
+      "page": "https://unsplash.com/photos/a-living-room-filled-with-furniture-and-a-fire-place-UTWRDWMMaag"
+    },
+    {
+      "file": "02.jpg",
+      "id": "bJGBQj5cf6w",
+      "photographer": "Luis J. Corniel",
+      "profile": "https://unsplash.com/@luisjcorniel",
+      "page": "https://unsplash.com/photos/a-stylish-neutral-toned-living-room-is-shown-bJGBQj5cf6w"
+    },
+    {
+      "file": "03.jpg",
+      "id": "jqFpFBzz0Tg",
+      "photographer": "Phebe Tan",
+      "profile": "https://unsplash.com/@phebechristine",
+      "page": "https://unsplash.com/photos/flat-screen-tv-turned-off-jqFpFBzz0Tg"
+    },
+    {
+      "file": "04.jpg",
+      "id": "9KSoHS5_xiM",
+      "photographer": "Lynn Van den Broeck",
+      "profile": "https://unsplash.com/@lynnvdbr",
+      "page": "https://unsplash.com/photos/black-flat-screen-tv-on-brown-wooden-tv-rack-9KSoHS5_xiM"
+    }
+  ]
+}

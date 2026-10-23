@@ -1,0 +1,35 @@
+{
+  "board_id": "industrial_01",
+  "query": "industrial loft interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "GxQInQPa10c",
+      "photographer": "Yunshuo Qu",
+      "profile": "https://unsplash.com/@yunshuoqu",
+      "page": "https://unsplash.com/photos/modern-staircase-with-metal-railings-and-steps-GxQInQPa10c"
+    },
+    {
+      "file": "02.jpg",
+      "id": "tqCfLSHgaIo",
+      "photographer": "ULISES RAMIREZ",
+      "profile": "https://unsplash.com/@ulises_rplt",
+      "page": "https://unsplash.com/photos/modern-open-plan-loft-apartment-with-dining-area-and-kitchen-tqCfLSHgaIo"
+    },
+    {
+      "file": "03.jpg",
+      "id": "wdlFqI0s_Kg",
+      "photographer": "Szcze hoo",
+      "profile": "https://unsplash.com/@szczehoo",
+      "page": "https://unsplash.com/photos/empty-industrial-room-with-sunlight-brick-wall-and-hanging-lights-wdlFqI0s_Kg"
+    },
+    {
+      "file": "04.jpg",
+      "id": "l6hYyYLr8XQ",
+      "photographer": "Raquel Fereshetian",
+      "profile": "https://unsplash.com/@raquellucine",
+      "page": "https://unsplash.com/photos/a-small-bed-in-a-small-room-with-a-window-l6hYyYLr8XQ"
+    }
+  ]
+}

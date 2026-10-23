@@ -1,0 +1,35 @@
+{
+  "board_id": "wabi_sabi_02",
+  "query": "wabi sabi interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "p2oz7Bkk5t4",
+      "photographer": "Jejo Jose",
+      "profile": "https://unsplash.com/@tomjejojose",
+      "page": "https://unsplash.com/photos/a-living-room-filled-with-furniture-and-a-large-window-p2oz7Bkk5t4"
+    },
+    {
+      "file": "02.jpg",
+      "id": "n_w2qXLkmns",
+      "photographer": "POOJAN THANEKAR",
+      "profile": "https://unsplash.com/@poojanclicks",
+      "page": "https://unsplash.com/photos/elegant-room-with-a-long-wooden-table-and-chairs-n_w2qXLkmns"
+    },
+    {
+      "file": "03.jpg",
+      "id": "NRLYAOmqd_c",
+      "photographer": "Margo Evardson",
+      "profile": "https://unsplash.com/@stadinstudio",
+      "page": "https://unsplash.com/photos/dried-grass-in-a-wooden-vase-on-a-bedside-table-NRLYAOmqd_c"
+    },
+    {
+      "file": "04.jpg",
+      "id": "PIRHTrJ1DB0",
+      "photographer": "Zion C",
+      "profile": "https://unsplash.com/@jcs_chen",
+      "page": "https://unsplash.com/photos/a-long-wooden-bench-sitting-on-top-of-a-lush-green-hillside-PIRHTrJ1DB0"
+    }
+  ]
+}

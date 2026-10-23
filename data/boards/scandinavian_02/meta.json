@@ -1,0 +1,35 @@
+{
+  "board_id": "scandinavian_02",
+  "query": "scandinavian living room",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "yhBFSZCIw8Y",
+      "photographer": "Glen Michaelsen",
+      "profile": "https://unsplash.com/@glenm",
+      "page": "https://unsplash.com/photos/a-wooden-table-with-a-sign-on-top-of-it-yhBFSZCIw8Y"
+    },
+    {
+      "file": "02.jpg",
+      "id": "o08lTHSjjU8",
+      "photographer": "Wemel Wood",
+      "profile": "https://unsplash.com/@wemelwood",
+      "page": "https://unsplash.com/photos/modern-living-room-with-courtyard-view-and-television-o08lTHSjjU8"
+    },
+    {
+      "file": "03.jpg",
+      "id": "e0oJLc5FYsg",
+      "photographer": "GoodLifeConstruction",
+      "profile": "https://unsplash.com/@goodlifeconstruction",
+      "page": "https://unsplash.com/photos/modern-living-room-with-minimalist-furniture-and-decor-e0oJLc5FYsg"
+    },
+    {
+      "file": "04.jpg",
+      "id": "BxbIMDrSmOI",
+      "photographer": "Margo Evardson",
+      "profile": "https://unsplash.com/@stadinstudio",
+      "page": "https://unsplash.com/photos/modern-living-room-with-gray-sectional-and-plants-BxbIMDrSmOI"
+    }
+  ]
+}

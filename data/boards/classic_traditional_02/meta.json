@@ -1,0 +1,35 @@
+{
+  "board_id": "classic_traditional_02",
+  "query": "classic traditional interior",
+  "source": "unsplash",
+  "photos": [
+    {
+      "file": "01.jpg",
+      "id": "ZWm7pR8Z860",
+      "photographer": "Jessica Martins",
+      "profile": "https://unsplash.com/@jessicamartins08",
+      "page": "https://unsplash.com/photos/bedroom-with-antique-wooden-furniture-and-chandelier-ZWm7pR8Z860"
+    },
+    {
+      "file": "02.jpg",
+      "id": "LEFOzG-fIhY",
+      "photographer": "Alessandro Santoro",
+      "profile": "https://unsplash.com/@asantoro90",
+      "page": "https://unsplash.com/photos/ornate-vintage-lounge-with-plush-seating-and-decorative-elements-LEFOzG-fIhY"
+    },
+    {
+      "file": "03.jpg",
+      "id": "3d_9MQDHVGE",
+      "photographer": "LISK OBE",
+      "profile": "https://unsplash.com/@summerobelisk",
+      "page": "https://unsplash.com/photos/a-formal-living-room-with-dark-sofas-chandeliers-and-artwork-3d_9MQDHVGE"
+    },
+    {
+      "file": "04.jpg",
+      "id": "13JYHaCr-B8",
+      "photographer": "Jason Gooljar",
+      "profile": "https://unsplash.com/@jasongooljar24",
+      "page": "https://unsplash.com/photos/ornate-chandelier-hangs-in-a-room-with-red-curtains-13JYHaCr-B8"
+    }
+  ]
+}

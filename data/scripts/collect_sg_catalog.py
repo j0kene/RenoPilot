@@ -6,8 +6,9 @@
             One query per item type; SGD price, dims, colour, image and product URL.
   Castlery  category listing pages (robots.txt allows them); the JSON-LD ItemList on each
             page has name, URL, image and SGD price.
-  Taobao    behind a login, so it is not scraped: add rows to data/taobao_manual.csv by hand
-            (same columns, currency CNY) and they are merged here.
+  Taobao    behind a login, so it is not scraped. Overseas rows live in data/taobao_manual.csv
+            (hand-entered; currently synthetic sample fixtures) and are loaded by build_index.py
+            directly, with their shipping columns (weight_kg, volume_m3, shipping_quote, ships_by).
 
 Polite by construction: one request at a time with a pause, a handful of pages per site.
 Images are downloaded only to compute embeddings locally; the catalog links to the
@@ -36,7 +37,6 @@ from renopilot.catalog.taxonomy import classify  # noqa: E402
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RenoPilot-CS621-student-project"}
 PAUSE_S = 1.5
-CNY_TO_SGD = 0.185     # indicative snapshot rate for the budget filter only; Pricing owns real FX
 COLUMNS = ["id", "source", "item_type", "title", "colour", "material", "dims", "price",
            "currency", "price_sgd", "url", "image_url", "image_path", "retrieved_at"]
 
@@ -166,23 +166,6 @@ def castlery(per_type: int, today: str) -> list[dict]:
     return rows
 
 
-def taobao_manual() -> list[dict]:
-    f = config.DATA / "taobao_manual.csv"
-    if not f.exists():
-        with f.open("w", newline="", encoding="utf-8") as fh:
-            csv.DictWriter(fh, COLUMNS).writeheader()
-        return []
-    rows = []
-    for r in csv.DictReader(f.open(encoding="utf-8")):
-        if not r.get("title"):
-            continue
-        r["source"] = "taobao"
-        if r.get("currency", "CNY") == "CNY" and r.get("price"):
-            r["price_sgd"] = round(float(r["price"]) * CNY_TO_SGD, 2)
-        rows.append(r)
-    return rows
-
-
 def retype(rows: list[dict]) -> int:
     """Re-type each row from its own title (categories leak: a lamp page lists both kinds).
     IKEA titles are "NAME type, image alt text": only the part before the comma is used."""
@@ -226,7 +209,6 @@ def main() -> None:
 
     print("IKEA SG"); rows = ikea(args.per_type, today)
     print("Castlery"); rows += castlery(args.per_type, today)
-    rows += taobao_manual()
 
     print("retyped", retype(rows), "rows from their titles")
     seen, out = set(), []

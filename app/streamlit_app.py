@@ -108,7 +108,7 @@ with st.sidebar:
     u = st.session_state.usage
     st.caption(f"{u['model_calls']} model calls · {u['input_tokens']:,} in / {u['output_tokens']:,} out tokens · "
                f"~${u['cost_usd']:.2f} API-equivalent")
-    st.caption("Backend: " + config.BACKEND + " · Catalog: IKEA SG + Castlery snapshot · Compliance: stub")
+    st.caption("Backend: " + config.BACKEND + " · Catalog: IKEA SG + Castlery snapshot · Pricing: landed SGD (overseas rows are sample data) · Compliance: stub")
 
 # --------------------------------------------------------------------------- main
 st.title("RenoPilot")
@@ -184,8 +184,21 @@ elif gate and gate["type"] == "approval":
                             st.image(str(img), width="stretch")
                         st.markdown(f"**{c['title'][:60]}**")
                         if c["product_id"]:
-                            st.markdown(f"{c['price']} · [link]({c['url']})")
+                            if c.get("landed"):
+                                est = " · estimated" if c.get("estimated") else ""
+                                st.markdown(f"**{c['landed']}** landed{est} · listed {c['price']} · [link]({c['url']})")
+                                with st.expander("Price breakdown"):
+                                    for ln in c["landed_lines"]:
+                                        st.caption(ln)
+                                    for a in c.get("assumptions") or []:
+                                        st.caption(f"Assumption: {a}")
+                            else:
+                                st.markdown(f"{c['price']} · [link]({c['url']})")
                             st.caption(c["reason"])
+                            for a in c.get("comparables") or []:
+                                badge = " · :orange[SAMPLE DATA]" if a["sample"] else ""
+                                word = ":green[cheaper]" if a["cheaper"] else "similar"
+                                st.caption(f"{word} at {a['source']}: {a['title'][:45]}, {a['landed']} landed{badge}")
                         if c["verdict"] and c["verdict"] != "allow":
                             st.warning(f"{c['verdict']}: {c['verdict_reason']}")
                         if c["product_id"]:

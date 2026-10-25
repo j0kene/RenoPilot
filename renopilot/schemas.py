@@ -66,6 +66,48 @@ class Product(BaseModel):
     url: str = ""
     image_path: str = ""
     retrieved_at: str = ""
+    # shipping inputs for overseas listings (all optional; Pricing estimates what is missing)
+    weight_kg: Optional[float] = None
+    volume_m3: Optional[float] = None
+    shipping_quote: Optional[float] = None   # quoted shipping to Singapore, in the listing currency
+    ships_by: Optional[Literal["sea", "air", "local"]] = None
+    synthetic: bool = False                  # made-up fixture row: never shown as a real offer
+
+
+# --------------------------------------------------------------------------- pricing
+class PriceLine(BaseModel):
+    label: str
+    amount_sgd: float
+    note: str = ""
+
+
+class PriceQuote(BaseModel):
+    """Landed cost of ONE item in SGD, written by deterministic code (renopilot/pricing).
+    Lines add up to total_sgd exactly (each line is rounded to the cent first)."""
+    listed: float
+    currency: str
+    fx_rate: float = 1.0
+    fx_date: Optional[str] = None
+    fx_stale: bool = False
+    item_sgd: float
+    shipping_sgd: float = 0.0
+    local_delivery_sgd: float = 0.0       # if bought alone; basket totals charge it once per order
+    gst_sgd: float = 0.0
+    gst_basis: Literal["included", "checkout_ovr", "import_cif", "none"] = "included"
+    total_sgd: float
+    lines: list[PriceLine] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    estimated: bool = False
+    synthetic: bool = False
+
+
+class PricedAlternative(BaseModel):
+    product_id: str
+    source: Source
+    title: str
+    url: str = ""
+    quote: PriceQuote
+    why_comparable: str = ""
 
 
 # --------------------------------------------------------------------------- downstream
@@ -89,5 +131,6 @@ class Suggestion(BaseModel):
     url: str = ""
     image_path: str = ""
     verdict: Optional[Verdict] = None       # Compliance guard
-    price_quote: Optional[dict] = None      # Pricing agent (landed cost breakdown), reserved
+    price_quote: Optional[PriceQuote] = None          # Pricing agent: landed cost of this item
+    comparables: list[PricedAlternative] = Field(default_factory=list)   # cheaper/similar elsewhere
     status: Literal["proposed", "approved", "rejected"] = "proposed"

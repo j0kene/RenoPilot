@@ -27,7 +27,7 @@ from renopilot import config, trace  # noqa: E402
 from renopilot.graph import build_graph  # noqa: E402
 from renopilot.schemas import ProjectProfile  # noqa: E402
 from renopilot.tools.budget import caps_for  # noqa: E402
-from tests.fakes import FAKE_NODES  # noqa: E402
+from tests.fakes import FAKE_NODES, fake_pricing_node  # noqa: E402
 
 TMP = config.CACHE / "eval_boards"
 
@@ -69,7 +69,11 @@ def resolve_step(step: str, gate: dict) -> dict:
 def make_agent(planner: str, real_style: bool):
     def agent(inp: dict) -> AgentResult:
         t0 = time.perf_counter()
-        g = build_graph(planner=planner, nodes=None if real_style else FAKE_NODES)
+        mode = inp.get("pricing", "fake")            # fake (no-op) | landed | stale_fx | off
+        nodes = None if real_style else dict(FAKE_NODES)
+        if nodes is not None and mode in ("landed", "stale_fx"):
+            nodes["pricing"] = fake_pricing_node(stale=mode == "stale_fx")
+        g = build_graph(planner=planner, nodes=nodes, pricing=mode != "off")
         cfg = {"configurable": {"thread_id": uuid4().hex}, "recursion_limit": 80}
         project = ProjectProfile(budget_by_category=inp.get("budget", {}), total_budget=inp.get("total"))
         board = inp["board"] if real_style and inp.get("board") else fake_board(inp["n_images"])
@@ -150,6 +154,14 @@ def grade(case, result) -> bool:
                 break
             if i < len(approval_resumes):
                 gone |= {r["product_id"] for r in approval_resumes[i].get("reject", [])}
+    if "escalation_mentions" in e:
+        if not any(e["escalation_mentions"] in x for x in state.get("escalations") or []):
+            fails.append("under_escalation")
+    if e.get("removed_by_pricing"):
+        if not any(r.get("by") == "pricing" for r in state.get("rejected") or []):
+            fails.append("over_budget")
+    if e.get("no_pricing_node") and any(d["node"] == "pricing" for d in state.get("trace", [])):
+        fails.append("wrong_tool")
     if e.get("within_caps"):
         caps = caps_for(state.get("project"), [s.item_type for s in state.get("suggestions", [])])
         if any(s.price_sgd is not None and caps.get(s.item_type) is not None and s.price_sgd > caps[s.item_type]

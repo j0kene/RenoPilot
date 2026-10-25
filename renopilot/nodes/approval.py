@@ -51,10 +51,20 @@ def ask_user(state: dict) -> dict:
 
 
 def _card(s) -> dict:
+    q = s.price_quote
     return {"product_id": s.product_id, "item_type": s.item_type, "title": s.title[:90],
             "price": fmt_sgd(s.price_sgd), "reason": s.reason, "url": s.url, "image_path": s.image_path,
             "verdict": s.verdict.decision if s.verdict else None,
-            "verdict_reason": s.verdict.reason if s.verdict else None}
+            "verdict_reason": s.verdict.reason if s.verdict else None,
+            # pricing (None until the pricing node has run)
+            "landed": fmt_sgd(q.total_sgd) if q else None,
+            "landed_lines": [f"{ln.label}: {fmt_sgd(ln.amount_sgd)}" + (f" ({ln.note})" if ln.note else "")
+                             for ln in q.lines] if q else [],
+            "estimated": bool(q and q.estimated), "assumptions": q.assumptions if q else [],
+            "comparables": [{"title": a.title[:80], "source": a.source, "landed": fmt_sgd(a.quote.total_sgd),
+                             "cheaper": bool(q and a.quote.total_sgd < q.total_sgd), "sample": a.quote.synthetic,
+                             "estimated": a.quote.estimated, "why": a.why_comparable, "url": a.url}
+                            for a in s.comparables]}
 
 
 def approval(state: dict) -> Command:

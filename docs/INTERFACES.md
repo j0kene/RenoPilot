@@ -1,4 +1,4 @@
-# Shared interfaces: how Compliance and Pricing plug in
+# Shared interfaces: how the components plug in
 
 The graph, the state and the data contracts are fixed so the workstreams build in parallel
 without touching each other's files. If you need to change one of these, agree it first:
@@ -7,14 +7,16 @@ without touching each other's files. If you need to change one of these, agree i
 ## The graph
 
 ```
-START -> intake -> planner -> {style_extract | shortlist | ask_user} -> planner ...
+START -> intake -> planner -> {style_extract | ask_user} -> planner ...
+                   planner -> shortlist -> pricing -> planner
                    planner -> compliance_guard -> approval -> respond -> END
                                                   approval -> planner   (owner rejected something)
 ```
 
 `compliance_guard -> approval` is a fixed edge: nothing reaches the owner without a verdict,
-and no agent can route around it. The planner cannot call the guard on its own, and nothing
-after the guard may change a verdict.
+and no agent can route around it. `shortlist -> pricing` is also fixed: every new shortlist is
+priced (landed cost, budget re-check) before the planner sees it. `build_graph(pricing=False)`
+drops the pricing node (the P0 graph, used as the ablation).
 
 ## Data each node sees
 
@@ -25,7 +27,8 @@ after the guard may change a verdict.
 | `product_id`, `title`, `price_sgd`, `url`, `image_path`, `reason`, `score` | Style agent | `product_id=None` for a finish or built-in the board asked for but that isn't a product |
 | `item_type`, `work_type` | Style agent | `work_type` comes from `vocab.WORK_TYPE_OF`: `loose_furniture`, `finish`, `built_in` |
 | `verdict: Verdict` | **Compliance guard** | `decision` = allow / allow_with_permit / block / escalate, plus `reason`, `rule_id`, `alternative`, `citation` |
-| `price_quote: dict` | **Pricing agent** (reserved) | landed-cost breakdown; suggested keys: `listed`, `currency`, `fx_rate`, `fx_date`, `shipping`, `local_delivery`, `gst`, `total_sgd` |
+| `price_quote: PriceQuote` | **Pricing agent** | landed cost of this item: `item_sgd`, `shipping_sgd`, `local_delivery_sgd` (if bought alone), `gst_sgd`, `gst_basis`, `total_sgd`, `lines`, `assumptions`, `estimated`, `synthetic`, `fx_rate/fx_date/fx_stale` |
+| `comparables: list[PricedAlternative]` | **Pricing agent** | up to 2 comparable offers at other retailers, each with its own `PriceQuote` and a `why_comparable` |
 | `status` | approval gate | proposed / approved / rejected |
 
 `ProjectProfile` holds `flat_type`, `completion_date` (needed for the 3-year rules) and the budgets.
@@ -47,14 +50,23 @@ A `block` verdict marks the suggestion rejected (by "guard") and records the rea
 re-plan with a legal alternative. The red-team / injection evals belong to this workstream: follow
 `evals/run_graph.py` for the pattern (cases JSONL + a trajectory grader + `run_eval`).
 
-## Pricing agent: how to add it
+## Pricing agent (implemented: `renopilot/pricing/`)
 
-1. Write `renopilot/nodes/pricing.py` with `def pricing(state) -> dict` that fills `price_quote` on live
-   suggestions, using deterministic, unit-tested tools in `renopilot/tools/` (FX, GST, landed cost).
-2. In `graph.py`, add the node between `shortlist` and the planner, or between `planner` and
-   `compliance_guard`, whichever is agreed. It is one `add_node` and one edge change.
-3. `tools/budget.py` currently filters on the listed SGD price (`price_sgd`). Once landed cost exists,
-   the budget filter should switch to `price_quote["total_sgd"]`.
+| file | role | model? |
+|---|---|---|
+| `rules.py` + `data/pricing/rules.json` | GST, low-value-goods / import-relief rules, delivery fee tables, shipping rates, typical sizes; each with source URL and date checked | no |
+| `fx.py` | Frankfurter rates, cached daily; `RENOPILOT_FX=snapshot` uses the frozen `data/pricing/fx_snapshot.json`; stale (> 24 h) is flagged, unknown currency raises | no |
+| `landed_cost.py` | `landed_cost(product) -> PriceQuote`, `basket_total(...)` (delivery once per retailer) | no |
+| `comparables.py` | `find_candidates` (same type, other retailers) + `judge_comparables` (model, ids constrained) + `dims_compatible` (code rule, overrides the model) | judge only |
+| `node.py` | `make_pricing(...)` / `pricing`: prices new suggestions, attaches the 2 cheapest comparables for the top 2 per type, removes items over budget on LANDED cost (`rejected` with `by: "pricing"`), raises an open issue if fewer than 3 remain, warns on stale FX | via comparables |
+
+Overseas listings come from `data/taobao_manual.csv` (loaded by `build_index.py`, not embedded). The current
+rows are **synthetic sample fixtures** (`synthetic=true`, titles start `[SAMPLE]`, no URL); they are labelled
+"sample data" everywhere they appear and must be replaced with real rows before any real-user claim.
+
+The shortlist's hard budget filter still uses the listed price (a cheap pre-filter); the pricing node re-checks
+on landed cost. A pricing removal is not final: if the owner raises the budget, the item can come back
+(the shortlist only excludes rejections by the owner or the guard).
 
 ## Tests and evals
 

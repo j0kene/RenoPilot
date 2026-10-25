@@ -37,15 +37,31 @@ def main() -> None:
         sg = config.DATA / "sg_catalog.csv"
         if sg.exists():
             rows += [r for r in csv.DictReader(sg.open(encoding="utf-8")) if r.get("image_path")]
+        # overseas rows (no images: priced and matched by text, never embedded)
+        overseas = config.DATA / "taobao_manual.csv"
+        if overseas.exists():
+            for r in csv.DictReader(overseas.open(encoding="utf-8")):
+                if r.get("title") and r.get("price"):
+                    r["synthetic"] = str(r.get("synthetic", "")).strip().lower() in ("true", "1", "yes")
+                    rows.append(r)
         print("upserted", store.upsert(rows), "products")
 
     products, _ = store.load_all()
     products = [p for p in products if p.image_path and (config.ROOT / p.image_path).exists()]
-    print(f"embedding {len(products)} images with {args.embed} ...")
-    t0 = time.perf_counter()
-    emb = Embedder(args.embed).images([p.image_path for p in products])
     out = config.INDEX / slug(args.embed)
     out.mkdir(parents=True, exist_ok=True)
+    # reuse embeddings already computed for the same id: adding rows must not re-embed everything
+    cached = {}
+    if (out / "ids.txt").exists() and (out / "image_emb.npy").exists():
+        old_ids = (out / "ids.txt").read_text(encoding="utf-8").split("\n")
+        old_emb = np.load(out / "image_emb.npy")
+        cached = {pid: old_emb[i] for i, pid in enumerate(old_ids) if i < len(old_emb)}
+    todo = [p for p in products if p.id not in cached]
+    print(f"{len(products)} products with images: {len(products) - len(todo)} cached, embedding {len(todo)} "
+          f"with {args.embed} ...")
+    t0 = time.perf_counter()
+    fresh = dict(zip([p.id for p in todo], Embedder(args.embed).images([p.image_path for p in todo]))) if todo else {}
+    emb = np.stack([cached[p.id] if p.id in cached else fresh[p.id] for p in products])
     np.save(out / "image_emb.npy", emb.astype(np.float32))
     (out / "ids.txt").write_text("\n".join(p.id for p in products), encoding="utf-8")
     print(f"done in {time.perf_counter() - t0:.0f}s -> {out}  shape={emb.shape}")

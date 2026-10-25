@@ -1,0 +1,109 @@
+{
+  "version": "2026-10-25",
+  "note": "Every figure has a source and the date it was checked. 'assumption': true marks values we could not confirm from an authoritative, current source; they are listed on every quote that uses them.",
+
+  "gst": {
+    "rate": 0.09,
+    "note": "Import GST is charged at 9% on CIF value + duties + incidental charges.",
+    "source_url": "https://www.iras.gov.sg/taxes/goods-services-tax-(gst)/claiming-gst-(input-tax)/importing-of-goods",
+    "date_checked": "2026-10-25"
+  },
+
+  "low_value_goods": {
+    "threshold_sgd": 400,
+    "modes": ["air", "post"],
+    "note": "Overseas vendors registered under the OVR regime charge GST at checkout on low-value goods (<= S$400 per item, sales value excluding separately charged freight and insurance) shipped by air or post; not charged again at import.",
+    "ovr_registered_sources": ["taobao"],
+    "source_url": "https://www.customs.gov.sg/personal-shipment/buying-from-overseas/gst-on-low-value-goods/",
+    "date_checked": "2026-10-25"
+  },
+
+  "import_relief": {
+    "cif_max_sgd": 400,
+    "modes": ["air", "post"],
+    "note": "GST import relief for CIF <= S$400 applies to air/post only, NOT sea or land. Above S$400, import GST is due on the ENTIRE CIF value.",
+    "source_url": "https://www.customs.gov.sg/personal-shipment/buying-from-overseas/paying-gst-duty-for-postal-courier-items/",
+    "date_checked": "2026-10-25"
+  },
+
+  "duty": {
+    "furniture_rate": 0.0,
+    "note": "Only intoxicating liquors, tobacco, motor vehicles and petroleum products are dutiable; furniture attracts GST only.",
+    "source_url": "https://www.customs.gov.sg/doing-business/valuation-duties-and-fees/duties-and-dutiable-goods/duties-and-dutiable-goods-overview/",
+    "date_checked": "2026-10-25"
+  },
+
+  "local_delivery": {
+    "ikea_sg": {
+      "parcel": {"fee": 10, "max_kg": 15, "max_length_cm": 140},
+      "parcel_max": {"fee": 20, "max_kg": 25, "max_length_cm": 140},
+      "home": {"fee": 35},
+      "note": "Per ORDER. Parcel delivery S$10 (<= 15 kg, items under 1.4 m); orders over 16 kg up to 25 kg S$20; home delivery S$35. No-lift surcharge (S$20, 3rd-5th floor) not modelled.",
+      "source_url": "https://www.ikea.com/sg/en/customer-service/services/delivery/",
+      "date_checked": "2026-10-25"
+    },
+    "castlery": {
+      "tiers": [[50.00, 9], [150.00, 15], [300.00, 19], [400.00, 29], [499.99, 49]],
+      "free_from": 500,
+      "note": "Per ORDER, by order total. Peak-slot and carry-up surcharges not modelled.",
+      "source_url": "https://www.castlery.com/sg/delivery",
+      "date_checked": "2026-10-25"
+    },
+    "other_sg": {"fee": 0, "assumption": true, "note": "Unknown retailer delivery policy; treated as free and flagged."}
+  },
+
+  "overseas_shipping": {
+    "sea_bulky_cny": {
+      "min_charge_cny": 225, "min_charge_up_to_m3": 0.5, "per_m3_cny": 450,
+      "assumption": true,
+      "note": "Cainiao consolidated sea 'bulky' tariff as reported in 2020: RMB225 flat up to 0.5 CBM, RMB450 per CBM above. Stale; a seller- or consolidator-quoted fee on the listing always overrides it.",
+      "source_url": "https://www.propertyguru.com.sg/property-guides/taobao-furniture-guide-shipping-singapore-34868",
+      "date_checked": "2026-10-25"
+    },
+    "air_sgd_per_kg": {
+      "rate": 8.0, "assumption": true,
+      "note": "No authoritative current air rate found; placeholder. Used only for listings marked ships_by=air without a quoted fee.",
+      "source_url": "https://www.shopback.sg/blog/finance/taobao-shipping-costs-singapore",
+      "date_checked": "2026-10-25"
+    },
+    "last_mile_sgd": {
+      "fee": 0, "assumption": true,
+      "note": "Consolidated shipments are usually delivered to the door; bulky/stairs surcharges vary by forwarder and are not modelled."
+    },
+    "insurance_sgd": 0
+  },
+
+  "typical_by_item_type": {
+    "assumption": true,
+    "note": "Rough packed size/weight per item type, used ONLY when a listing gives none. Quotes using these are marked estimated.",
+    "sofa":          {"volume_m3": 1.20, "weight_kg": 60, "longest_cm": 200},
+    "armchair":      {"volume_m3": 0.60, "weight_kg": 20, "longest_cm": 90},
+    "coffee_table":  {"volume_m3": 0.20, "weight_kg": 15, "longest_cm": 110},
+    "side_table":    {"volume_m3": 0.08, "weight_kg": 6,  "longest_cm": 55},
+    "tv_console":    {"volume_m3": 0.35, "weight_kg": 35, "longest_cm": 180},
+    "dining_table":  {"volume_m3": 0.45, "weight_kg": 40, "longest_cm": 160},
+    "dining_chair":  {"volume_m3": 0.20, "weight_kg": 6,  "longest_cm": 85},
+    "bar_stool":     {"volume_m3": 0.15, "weight_kg": 6,  "longest_cm": 80},
+    "bench":         {"volume_m3": 0.25, "weight_kg": 15, "longest_cm": 130},
+    "ottoman":       {"volume_m3": 0.12, "weight_kg": 5,  "longest_cm": 60},
+    "bed_frame":     {"volume_m3": 0.60, "weight_kg": 45, "longest_cm": 210},
+    "bedside_table": {"volume_m3": 0.08, "weight_kg": 10, "longest_cm": 50},
+    "dresser":       {"volume_m3": 0.40, "weight_kg": 45, "longest_cm": 120},
+    "wardrobe":      {"volume_m3": 0.80, "weight_kg": 80, "longest_cm": 200},
+    "bookshelf":     {"volume_m3": 0.30, "weight_kg": 30, "longest_cm": 200},
+    "desk":          {"volume_m3": 0.25, "weight_kg": 25, "longest_cm": 140},
+    "office_chair":  {"volume_m3": 0.25, "weight_kg": 14, "longest_cm": 70},
+    "rug":           {"volume_m3": 0.08, "weight_kg": 8,  "longest_cm": 200},
+    "floor_lamp":    {"volume_m3": 0.06, "weight_kg": 5,  "longest_cm": 160},
+    "table_lamp":    {"volume_m3": 0.03, "weight_kg": 2,  "longest_cm": 50},
+    "pendant_light": {"volume_m3": 0.04, "weight_kg": 2,  "longest_cm": 50},
+    "mirror":        {"volume_m3": 0.06, "weight_kg": 10, "longest_cm": 160}
+  },
+
+  "fx": {
+    "provider": "Frankfurter (ECB reference rates, business days)",
+    "source_url": "https://api.frankfurter.dev/v1/latest",
+    "stale_after_hours": 24,
+    "note": "Stale = our cached copy is more than 24 h old (ECB does not publish on weekends, so the rate's own date can be older)."
+  }
+}

@@ -7,8 +7,10 @@ All grounding data is a dated snapshot, frozen before evaluation. Large files (`
 |---|---|---|---|---|---|
 | Product catalog for retrieval (furniture subset of ABO) | Amazon Berkeley Objects, public S3 bucket `amazon-berkeley-objects` | CC BY 4.0 (credit: Collins et al., "ABO: Dataset and Benchmarks for Real-World 3D Object Understanding", CVPR 2022) | 2026-10-22 | `fetch_abo.py`, `build_abo_subset.py` | retrieval eval, catalog |
 | SG price catalog (`sg_catalog.csv`) | IKEA Singapore (public search API behind ikea.com/sg; robots.txt on that host allows all), Castlery SG category pages (JSON-LD; robots.txt allows) | Prices, titles and links quoted for a private student project; images cached locally only to compute embeddings, not redistributed | 2026-10-22 | `collect_sg_catalog.py` | Style agent demo, budget filter, Pricing |
-| Taobao items (`taobao_manual.csv`) | Taobao listings, entered by hand (login wall) | as above | pending | manual | Pricing |
-| Style eval mood boards (`boards/`) | Unsplash, official API | Unsplash licence; photographer attribution in each board's `meta.json`; private eval set, not redistributed | pending (needs API key) | `fetch_unsplash_boards.py` | style eval |
+| Overseas listings (`taobao_manual.csv`) | **18 synthetic sample fixtures** (made up for testing; `synthetic=true`, `[SAMPLE]` titles, no URLs). Real Taobao rows (login wall) to be entered by hand later, same columns | n/a (synthetic) | 2026-10-25 | manual | Pricing |
+| Pricing rules (`pricing/rules.json`) | IRAS (GST 9% on imports), Singapore Customs (low-value goods / OVR, S$400 air/post import relief, no relief by sea, dutiable goods), IKEA SG and Castlery delivery pages; Cainiao sea tariff via PropertyGuru (2020, **assumption**); air rate (**assumption**) | public pages; each entry carries its URL and date checked | 2026-10-25 | hand-compiled | Pricing |
+| FX snapshot (`pricing/fx_snapshot.json`) | Frankfurter API (ECB reference rates) | free, no key | rates of 2026-10-23, fetched 2026-10-25 | `fx.py` | Pricing evals |
+| Style eval mood boards (`boards/`) | Unsplash, official API | Unsplash licence; photographer attribution in each board's `meta.json`; private eval set, not redistributed | 2026-10-22/23 (27 boards x 4 photos) | `fetch_unsplash_boards.py` | style eval |
 | Retrieval eval boards (`evals/cases/retrieval.jsonl`) | built from the ABO subset (alternate images) | CC BY 4.0 | with ABO | `make_retrieval_boards.py` | retrieval eval |
 
 ## Known data issues (and what we did)
@@ -20,6 +22,12 @@ All grounding data is a dated snapshot, frozen before evaluation. Large files (`
   excluded by title pattern. Colour variants of one model are collapsed to one family.
 - **IKEA product names arrive with U+FFFD** in place of Swedish letters (e.g. `PO�NG`): the API sends them
   that way. Harmless for search; the reranker strips non-ASCII.
-- **CNY to SGD** for Taobao rows uses a fixed indicative rate (`CNY_TO_SGD` in the collector), and only for the
-  budget filter. Landed cost (FX date, shipping, GST) is the Pricing agent's job.
+- **CNY to SGD** is never hard-coded: overseas rows are priced by the Pricing agent with a dated FX rate
+  (live Frankfurter or the frozen snapshot), plus shipping and GST.
 - Castlery had no matching category page for bar stools, ottomans and bed frames in this snapshot.
+- **Delivery fees are per order**, not per item. A quote shows the fee "if bought alone"; totals across items
+  (`basket_total`) charge each local retailer's fee once (Castlery's tier is re-read on the order total).
+- **IKEA rows have no weights**, so the IKEA delivery tier (S$10 parcel vs S$35 home) uses a typical weight per
+  item type and the quote is marked estimated.
+- **Overseas shipping rates are the weakest data**: no authoritative current rate was found; quotes using the
+  estimate list it as an assumption, and a seller-quoted fee on the row always wins.

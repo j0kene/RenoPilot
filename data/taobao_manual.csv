@@ -1,1 +1,19 @@
-id,source,item_type,title,colour,material,dims,price,currency,price_sgd,url,image_url,image_path,retrieved_at
+id,source,item_type,title,colour,material,dims,price,currency,price_sgd,url,image_url,image_path,retrieved_at,weight_kg,volume_m3,shipping_quote,ships_by,synthetic
+taobao:sample-01,taobao,sofa,"[SAMPLE] Japandi 3-seater linen sofa, low back, oak legs",beige,linen; oak,210x88x72 cm,2380,CNY,,,,,2026-10-25,58,1.3,,sea,true
+taobao:sample-02,taobao,sofa,"[SAMPLE] Modular boucle sofa, 3 seats, curved arms",cream,boucle,230x95x70 cm,3150,CNY,,,,,2026-10-25,70,1.6,520,sea,true
+taobao:sample-03,taobao,sofa,"[SAMPLE] Compact 2-seater fabric sofa, slim arms",light grey,polyester,160x80x78 cm,1290,CNY,,,,,2026-10-25,38,0.8,,sea,true
+taobao:sample-04,taobao,armchair,"[SAMPLE] Rattan lounge armchair with linen cushion",natural,rattan; linen,72x78x76 cm,880,CNY,,,,,2026-10-25,12,0.5,,sea,true
+taobao:sample-05,taobao,armchair,"[SAMPLE] Boucle accent chair, round back, wood legs",white,boucle; ash,70x72x75 cm,760,CNY,,,,,2026-10-25,14,,,sea,true
+taobao:sample-06,taobao,coffee_table,"[SAMPLE] Round solid oak coffee table, 80 cm",light oak,solid oak,80x80x38 cm,690,CNY,,,,,2026-10-25,18,0.25,120,sea,true
+taobao:sample-07,taobao,coffee_table,"[SAMPLE] Rectangular walnut coffee table with shelf",walnut,walnut veneer,110x55x40 cm,980,CNY,,,,,2026-10-25,22,0.3,,sea,true
+taobao:sample-08,taobao,side_table,"[SAMPLE] Small round side table, ash wood",natural,ash,45x45x50 cm,239,CNY,,,,,2026-10-25,5,0.06,40,sea,true
+taobao:sample-09,taobao,tv_console,"[SAMPLE] Low oak TV console, 180 cm, two drawers",light oak,oak veneer,180x40x45 cm,1180,CNY,,,,,2026-10-25,38,0.4,,sea,true
+taobao:sample-10,taobao,dining_table,"[SAMPLE] Round dining table, solid ash, 110 cm",natural,solid ash,110x110x75 cm,1460,CNY,,,,,2026-10-25,35,0.5,,sea,true
+taobao:sample-11,taobao,dining_chair,"[SAMPLE] Wishbone-style dining chair, paper cord seat",natural,beech; paper cord,55x52x76 cm,320,CNY,,,,,2026-10-25,5,0.2,60,sea,true
+taobao:sample-12,taobao,rug,"[SAMPLE] Hand-woven jute area rug, 160x230",natural,jute,160x230 cm,420,CNY,,,,,2026-10-25,7,0.06,,sea,true
+taobao:sample-13,taobao,floor_lamp,"[SAMPLE] Paper lantern floor lamp, 150 cm",white,rice paper; metal,40x40x150 cm,298,CNY,,,,,2026-10-25,3,,45,air,true
+taobao:sample-14,taobao,pendant_light,"[SAMPLE] Rattan pendant light, 45 cm shade",natural,rattan,45x45x35 cm,189,CNY,,,,,2026-10-25,1.5,0.04,,air,true
+taobao:sample-15,taobao,bed_frame,"[SAMPLE] Low platform bed frame, oak, queen",light oak,solid oak,160x205x30 cm,1880,CNY,,,,,2026-10-25,55,0.7,,sea,true
+taobao:sample-16,taobao,bookshelf,"[SAMPLE] 5-tier open bookshelf, oak and black metal",oak; black,oak veneer; steel,80x30x180 cm,560,CNY,,,,,2026-10-25,24,0.25,,sea,true
+taobao:sample-17,taobao,ottoman,"[SAMPLE] Knitted round pouf, 50 cm",beige,cotton,50x50x35 cm,159,CNY,,,,,2026-10-25,3,0.1,25,sea,true
+taobao:sample-18,taobao,table_lamp,"[SAMPLE] Mushroom table lamp, brass finish",brass,metal,30x30x38 cm,210,CNY,,,,,2026-10-25,1.8,,,air,true

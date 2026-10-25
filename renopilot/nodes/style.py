@@ -212,7 +212,8 @@ def shortlist_node(state: dict) -> dict:
         profile = profile.model_copy(update={"items": [
             i.model_copy(update={"description": f"{i.description}; {refinements[i.item_type]}"})
             if i.item_type in refinements else i for i in profile.items]})
-    exclude = {r["product_id"] for r in state.get("rejected") or [] if r.get("product_id")}
+    # owner and guard rejections are final; a pricing removal is not (a raised budget can bring it back)
+    exclude = {r["product_id"] for r in state.get("rejected") or [] if r.get("product_id") and r.get("by") != "pricing"}
     new, escalations = build_shortlist(profile, state.get("project"), state.get("board_images") or [],
                                        item_types=types, exclude_ids=exclude, sources=config.SHORTLIST_SOURCES)
     kept = [s for s in state.get("suggestions") or [] if s.item_type not in types or s.status == "rejected"]

@@ -45,9 +45,14 @@ def show_approval(gate: dict) -> list[dict]:
             print(f"\n{c['item_type'].replace('_', ' ').upper()}")
             last = c["item_type"]
         flag = "" if c["verdict"] in (None, "allow") else f"  [{c['verdict']}] {c['verdict_reason']}"
-        print(f"  {i:>2}. {c['title'][:70]:<70} {c['price']:>10}{flag}")
+        price = f"{c['landed']} landed{' (est.)' if c.get('estimated') else ''}" if c.get("landed") else c["price"]
+        print(f"  {i:>2}. {c['title'][:62]:<62} {price:>20}{flag}")
         if c["product_id"]:
             print(f"      {c['reason']}")
+            for a in c.get("comparables") or []:
+                tag = " [SAMPLE DATA]" if a["sample"] else ""
+                print(f"      {'cheaper' if a['cheaper'] else 'similar'} at {a['source']}: {a['title'][:50]} "
+                      f"{a['landed']} landed{tag}")
     for e in gate.get("escalations") or []:
         print(f"\n  note: {e}")
     return cards

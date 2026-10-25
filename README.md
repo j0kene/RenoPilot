@@ -3,7 +3,7 @@
 From mood board to a compliant, priced shortlist for BTO owners in Singapore (CS621 group project).
 
 This repo currently holds **P0, mood board → shortlist**: the shared LangGraph skeleton plus the Style agent, with
-its data and evals. Compliance and Pricing plug into the same graph (see [docs/INTERFACES.md](docs/INTERFACES.md)).
+its data and evals. Pricing is in (`renopilot/pricing/`); Compliance plugs into the same graph (see [docs/INTERFACES.md](docs/INTERFACES.md)).
 
 ## Setup (Windows, Python 3.12)
 
@@ -40,6 +40,9 @@ python -m uv run python -m renopilot.run_cli --board a.jpg b.jpg c.jpg --total 6
 python -m uv run python -m renopilot.graph      # print the graph as mermaid
 ```
 
+Prices: `RENOPILOT_FX=snapshot` uses the frozen FX file (reproducible, offline); the default fetches daily
+rates from Frankfurter. Overseas rows are currently synthetic sample data (see `data/SOURCES.md`).
+
 Every run writes a JSONL trace to `runs/<run_id>.jsonl`, one row per node or model call.
 
 ## Evals
@@ -48,7 +51,9 @@ Every run writes a JSONL trace to `runs/<run_id>.jsonl`, one row per node or mod
 |---|---|---|
 | `python -m uv run python evals/run_retrieval.py --n-runs 5` | Recall@10 on boards of known ABO products, vs text-only baseline + ablations | deterministic |
 | `python -m uv run python evals/run_style.py --n-runs 5 --baseline` | style attribute F1 vs two human labellers | deterministic |
-| `python -m uv run python evals/run_graph.py --n-runs 5` | routes at each boundary, LLM planner vs fixed pipeline | trajectory assertions |
+| `python -m uv run python evals/run_graph.py --n-runs 5` | routes at each boundary (incl. pricing: landed-cost budget removal, stale FX, pricing off), LLM planner vs fixed pipeline | trajectory assertions |
+| `python -m uv run python evals/run_pricing.py --n-runs 5` | comparable judging on 28 labelled pairs (17 positive, 11 hard negatives) vs type-only and dims-only baselines | label match |
+| `python -m uv run pytest tests/test_landed_cost.py` | 30 hand-worked landed-cost cases, exact to the cent | exact |
 
 Results append to `evals/results/*.jsonl`, so an interrupted run resumes where it stopped.
 
@@ -59,6 +64,7 @@ renopilot/   config, llm (model per role), schemas + vocab + state (shared contr
   catalog/   store (SQLite), embed (open_clip/SigLIP), search (hybrid + RRF), taxonomy (title -> type)
   nodes/     intake, planner, style, guard_stub, approval (+ ask_user), respond
   tools/     budget (deterministic money maths)
+  pricing/   rules, fx, landed_cost (deterministic), comparables (model-judged), node
   graph.py   the LangGraph wiring;  run_cli.py  terminal demo
 data/        scripts/, sg_catalog.csv, boards/, labels/ (raw/, images/, index/ are rebuilt)
 evals/       harness.py (week-3 contract + pass^k + CI + resume), cases/, run_*.py

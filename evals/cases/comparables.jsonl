@@ -1,0 +1,28 @@
+{"id": "c01", "input": {"shortlisted": "taobao:sample-01", "candidate": "castlery:owen-ii-3-seater-sofa"}, "expected": true, "tags": ["positive"], "note": "3-seat fabric sofas"}
+{"id": "c02", "input": {"shortlisted": "taobao:sample-01", "candidate": "ikea_sg:90618516"}, "expected": true, "tags": ["positive"], "note": "3-seat fabric sofas"}
+{"id": "c03", "input": {"shortlisted": "taobao:sample-03", "candidate": "ikea_sg:10489009"}, "expected": true, "tags": ["positive"], "note": "compact 2-seaters"}
+{"id": "c04", "input": {"shortlisted": "taobao:sample-03", "candidate": "ikea_sg:40618528"}, "expected": true, "tags": ["positive"], "note": "compact 2-seaters"}
+{"id": "c05", "input": {"shortlisted": "taobao:sample-06", "candidate": "ikea_sg:70449402"}, "expected": true, "tags": ["positive"], "note": "round wood coffee tables, 70-80 cm"}
+{"id": "c06", "input": {"shortlisted": "taobao:sample-06", "candidate": "castlery:guin-round-coffee-table"}, "expected": true, "tags": ["positive"], "note": "round coffee tables"}
+{"id": "c07", "input": {"shortlisted": "taobao:sample-07", "candidate": "ikea_sg:20352987"}, "expected": true, "tags": ["positive"], "note": "rectangular coffee tables ~100x55"}
+{"id": "c08", "input": {"shortlisted": "taobao:sample-12", "candidate": "ikea_sg:50511287"}, "expected": true, "tags": ["positive"], "note": "jute area rugs of similar size"}
+{"id": "c09", "input": {"shortlisted": "taobao:sample-12", "candidate": "castlery:jana-jute-area-rug"}, "expected": true, "tags": ["positive"], "note": "jute area rugs"}
+{"id": "c10", "input": {"shortlisted": "taobao:sample-04", "candidate": "ikea_sg:30574092"}, "expected": true, "tags": ["positive"], "note": "rattan/wicker lounge armchairs"}
+{"id": "c11", "input": {"shortlisted": "taobao:sample-05", "candidate": "castlery:solange-performance-boucle-chair"}, "expected": true, "tags": ["positive"], "note": "boucle accent chairs"}
+{"id": "c12", "input": {"shortlisted": "taobao:sample-08", "candidate": "ikea_sg:20627982"}, "expected": true, "tags": ["positive"], "note": "small side tables ~45 cm"}
+{"id": "c13", "input": {"shortlisted": "taobao:sample-09", "candidate": "ikea_sg:20597819"}, "expected": true, "tags": ["positive"], "note": "~180 cm low TV consoles"}
+{"id": "c14", "input": {"shortlisted": "taobao:sample-09", "candidate": "castlery:august-tv-console-180cm"}, "expected": true, "tags": ["positive"], "note": "180 cm TV consoles"}
+{"id": "c15", "input": {"shortlisted": "taobao:sample-13", "candidate": "ikea_sg:70594837"}, "expected": true, "tags": ["positive"], "note": "paper-shade floor lamps"}
+{"id": "c16", "input": {"shortlisted": "taobao:sample-17", "candidate": "ikea_sg:70385315"}, "expected": true, "tags": ["positive"], "note": "knitted round poufs"}
+{"id": "c17", "input": {"shortlisted": "taobao:sample-16", "candidate": "ikea_sg:00522047"}, "expected": true, "tags": ["positive"], "note": "80 cm wide open bookcases"}
+{"id": "c18", "input": {"shortlisted": "taobao:sample-03", "candidate": "castlery:jonathan-leather-u-shape-chaise-sectional-sofa"}, "expected": false, "tags": ["hard_negative"], "note": "2-seater vs U-shape sectional"}
+{"id": "c19", "input": {"shortlisted": "taobao:sample-01", "candidate": "castlery:isaac-reversible-chaise-sectional-sofa-with-ottoman"}, "expected": false, "tags": ["hard_negative"], "note": "3-seater vs sectional with ottoman"}
+{"id": "c20", "input": {"shortlisted": "taobao:sample-06", "candidate": "ikea_sg:90353078"}, "expected": false, "tags": ["hard_negative"], "note": "80 cm round vs 180 cm oval"}
+{"id": "c21", "input": {"shortlisted": "taobao:sample-06", "candidate": "ikea_sg:80627979"}, "expected": false, "tags": ["hard_negative"], "note": "80 cm round vs 130x65 rectangular"}
+{"id": "c22", "input": {"shortlisted": "taobao:sample-12", "candidate": "ikea_sg:00456759"}, "expected": false, "tags": ["hard_negative"], "note": "160x230 vs 120x180 rug"}
+{"id": "c23", "input": {"shortlisted": "taobao:sample-12", "candidate": "ikea_sg:10198294"}, "expected": false, "tags": ["hard_negative"], "note": "indoor jute 160x230 vs in/outdoor 200x300"}
+{"id": "c24", "input": {"shortlisted": "taobao:sample-09", "candidate": "ikea_sg:10625525"}, "expected": false, "tags": ["hard_negative"], "note": "180 cm vs 90 cm TV bench"}
+{"id": "c25", "input": {"shortlisted": "taobao:sample-16", "candidate": "ikea_sg:99483768"}, "expected": false, "tags": ["hard_negative"], "note": "open bookcase vs 160 cm glass-door combination"}
+{"id": "c26", "input": {"shortlisted": "taobao:sample-04", "candidate": "castlery:dean-leather-recliner-armchair"}, "expected": false, "tags": ["hard_negative"], "note": "rattan lounge chair vs leather recliner"}
+{"id": "c27", "input": {"shortlisted": "taobao:sample-10", "candidate": "ikea_sg:80365802"}, "expected": false, "tags": ["hard_negative"], "note": "110 cm round vs 220 cm rectangular dining table"}
+{"id": "c28", "input": {"shortlisted": "taobao:sample-13", "candidate": "ikea_sg:70405525"}, "expected": false, "tags": ["hard_negative"], "note": "paper lantern vs arched lamp base"}

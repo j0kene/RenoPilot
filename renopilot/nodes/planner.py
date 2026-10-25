@@ -134,7 +134,8 @@ def _briefing(state: dict) -> str:
     return "\n".join([
         f"Board images: {len(state.get('board_images') or [])}",
         f"Style profile: {', '.join(p.style_tags) + ' | items: ' + ', '.join(i.item_type for i in p.items) if p else 'none'}",
-        f"Live product suggestions per item type: {by_type or 'none'}",
+        f"Live product suggestions per item type: {by_type or 'none'} (prices are landed SGD totals; items over "
+        "budget after delivery/shipping/GST were already removed)",
         f"Finishes / built-ins (not searched; they go to the compliance check as requests): {finishes or 'none'}",
         f"Owner feedback TO ACT ON (item type: reason): {todo or 'none'}",
         f"Earlier feedback, already acted on: {done[-4:] or 'none'}",

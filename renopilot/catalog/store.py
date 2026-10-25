@@ -14,10 +14,11 @@ from renopilot.schemas import Product
 
 DB_PATH = config.INDEX / "catalog.sqlite"
 _FIELDS = list(Product.model_fields)
+_SQL_TYPE = {f: "REAL" for f in ("price", "price_sgd", "weight_kg", "volume_m3", "shipping_quote")} | {"synthetic": "INTEGER"}
 
 SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS products (
-    {", ".join(f"{f} {'REAL' if f in ('price', 'price_sgd') else 'TEXT'}" for f in _FIELDS)},
+    {", ".join(f"{f} {_SQL_TYPE.get(f, 'TEXT')}" for f in _FIELDS)},
     alt_image_paths TEXT DEFAULT '[]',
     PRIMARY KEY (id)
 );

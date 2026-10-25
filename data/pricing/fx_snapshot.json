@@ -1,0 +1,7 @@
+{
+  "note": "Frozen FX for tests and evals (RENOPILOT_FX=snapshot): reproducible results, no network. 1 unit of currency = rate SGD.",
+  "fetched_at": "2026-10-25T00:00:00+08:00",
+  "rate_date": "2026-10-23",
+  "source": "Frankfurter (ECB), fetched 2026-10-25",
+  "rates_to_sgd": {"SGD": 1.0, "CNY": 0.19167, "USD": 1.2785}
+}

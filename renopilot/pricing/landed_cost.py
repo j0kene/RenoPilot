@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
+from renopilot import trace
 from renopilot.pricing.fx import FxProvider
 from renopilot.pricing.rules import PricingRules, load_rules
 from renopilot.schemas import PriceLine, PriceQuote, Product
@@ -78,6 +79,7 @@ def local_delivery(p: Product, item_sgd: Decimal, rules: PricingRules) -> tuple[
 
 
 # --------------------------------------------------------------------------- the quote
+@trace.tool("landed_cost", inputs=("p",))
 def landed_cost(p: Product, rules: PricingRules | None = None, fx: FxProvider | None = None) -> PriceQuote:
     if p.price is None:
         raise ValueError(f"{p.id} has no listed price")
@@ -153,6 +155,7 @@ def landed_cost(p: Product, rules: PricingRules | None = None, fx: FxProvider | 
 
 
 # --------------------------------------------------------------------------- baskets
+@trace.tool("basket_total", inputs=("items",))
 def basket_total(items: list[tuple[str, PriceQuote]], rules: PricingRules | None = None) -> dict:
     """Total for buying several items: each LOCAL retailer's delivery fee is charged once per
     order (Castlery's tier is re-read on the order total; IKEA takes the largest single fee)."""

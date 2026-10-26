@@ -16,7 +16,6 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from langgraph.types import Command  # noqa: E402
@@ -74,11 +73,12 @@ def make_agent(planner: str, real_style: bool):
         if nodes is not None and mode in ("landed", "stale_fx"):
             nodes["pricing"] = fake_pricing_node(stale=mode == "stale_fx")
         g = build_graph(planner=planner, nodes=nodes, pricing=mode != "off")
-        cfg = {"configurable": {"thread_id": uuid4().hex}, "recursion_limit": 80}
         project = ProjectProfile(budget_by_category=inp.get("budget", {}), total_budget=inp.get("total"))
         board = inp["board"] if real_style and inp.get("board") else fake_board(inp["n_images"])
         gates, shown, resumes = [], [], []
         with trace.tracing() as t:
+            cfg = trace.run_config("renopilot-eval-graph", recursion_limit=80, run_id=t.run_id,
+                                   tags=["eval:graph", f"planner:{planner}", f"pricing:{mode}"])
             out = g.invoke({"board_images": board, "project": project, "messages": []}, cfg)
             script = list(inp["script"])
             while "__interrupt__" in out:

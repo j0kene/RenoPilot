@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from uuid import uuid4
 
 from langgraph.types import Command
 
@@ -89,9 +88,9 @@ def main() -> None:
     args = ap.parse_args()
 
     graph = build_graph(planner=args.planner)
-    cfg = {"configurable": {"thread_id": uuid4().hex}, "recursion_limit": 60}
     project = ProjectProfile(budget_by_category=parse_budget(args.budget), total_budget=args.total)
     with trace.tracing() as t:
+        cfg = trace.run_config("renopilot-cli", tags=["cli", f"planner:{args.planner}"], run_id=t.run_id)
         out = graph.invoke({"board_images": board_paths(args.board), "project": project, "messages": []}, cfg)
         while "__interrupt__" in out:
             gate = out["__interrupt__"][0].value
@@ -105,6 +104,8 @@ def main() -> None:
         print(f"\n[{tot['model_calls']} model calls, {tot['input_tokens']:,} in / {tot['output_tokens']:,} out tokens, "
               f"~${tot['cost_usd']:.3f} API-equivalent]  trace: {t.path}")
         print("[decisions] " + " -> ".join(f"{d['node']}:{d['action']}" for d in out.get("trace", [])))
+        if url := trace.langfuse_url(cfg):
+            print(f"[langfuse] {url}")
 
 
 if __name__ == "__main__":

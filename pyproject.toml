@@ -19,6 +19,7 @@ dependencies = [
     "transformers>=5.20.2",
     "sentencepiece>=0.2.2",
     "protobuf>=7.36.2",
+    "langfuse>=5.0.4,<6",
 ]
 
 [dependency-groups]

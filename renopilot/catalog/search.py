@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from rank_bm25 import BM25Okapi
 
-from renopilot import config
+from renopilot import config, trace
 from renopilot.catalog import store
 from renopilot.catalog.embed import get_embedder, slug
 from renopilot.schemas import Product
@@ -78,6 +78,9 @@ class CatalogIndex:
         return m
 
     # ------------------------------------------------------------------ search
+    @trace.tool("catalog_search", inputs=("query", "item_type", "max_price", "sources", "exclude_ids", "signals"),
+                output=lambda hits: {"n": len(hits), "top": [{"id": h.product.id, "score": round(h.score, 5),
+                                                          "ranks": h.ranks} for h in hits[:10]]})
     def search(self, query: str, *, item_type: str | None = None, board_emb: np.ndarray | None = None,
                max_price: float | None = None, sources: tuple[str, ...] | None = None,
                exclude_ids: set[str] | frozenset = frozenset(), k: int = config.WIDE_K,

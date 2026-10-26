@@ -45,6 +45,16 @@ rates from Frankfurter. Overseas rows are currently synthetic sample data (see `
 
 Every run writes a JSONL trace to `runs/<run_id>.jsonl`, one row per node or model call.
 
+## Tracing in Langfuse (self-hosted, part of the compose stack)
+
+`docker compose up -d langfuse-web` starts Langfuse alone (for runs on the host). Log in as `dev@renopilot.local` /
+`renopilot-local`; on first start the stack creates the project with the `LANGFUSE_*` keys from `.env`, so the app and
+the server always agree (comment the keys out to turn tracing off). Graph runs from the CLI, the Streamlit app and `evals/run_graph.py` then show up as one trace per conversation,
+with all the interrupt/resume turns in it: the master agent's tool calls, each subagent node, the shopper agents
+and their tool calls (`search_catalog`, `product_details`, `landed_price`), the code-level tools under them
+(`@trace.tool`: catalog search, landed cost, basket total, comparable candidates, HDB rule check), and every model
+call (prompt, reply, tokens). See [docs/INTERFACES.md](docs/INTERFACES.md) for the master/subagent layout. The CLI prints the trace link at the end.
+
 ## Evals
 
 | command | what | grader |

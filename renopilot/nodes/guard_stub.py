@@ -13,6 +13,7 @@ from renopilot import trace
 from renopilot.schemas import ProjectProfile, Suggestion, Verdict
 
 
+@trace.tool("hdb_rule_check", inputs=("s", "project"))
 def verdict_for(s: Suggestion, project: ProjectProfile | None) -> Verdict:
     if s.work_type == "loose_furniture":
         return Verdict(decision="allow", reason="Loose furniture: no HDB approval needed.")

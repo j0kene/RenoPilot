@@ -68,6 +68,19 @@ The shortlist's hard budget filter still uses the listed price (a cheap pre-filt
 on landed cost. A pricing removal is not final: if the owner raises the budget, the item can come back
 (the shortlist only excludes rejections by the owner or the guard).
 
+## Tracing (JSONL + Langfuse)
+
+Nodes keep logging compact rows with `trace.log(...)` (the JSONL the evals read). Langfuse needs nothing from
+a node: with `trace.run_config(...)` as the graph config, every node, model call, agent and LangChain tool call
+is traced automatically, nested where it ran: master generation (its tool call) -> subagent node ->
+shopper agent -> its tool call -> the code-level tool underneath (e.g. `search_catalog` -> `catalog_search`,
+which shows the hard filters the code added to the model's query).
+The one thing to add is `@trace.tool(name, inputs=(...))` on a new **tool**, i.e. deterministic code a node
+calls (search, a rule lookup, a cost function), so it appears as a tool call under that node. Name only small
+arguments in `inputs` (never the catalog or an embedding), and pass `output=` to summarise a large result.
+Outside a traced run the decorator is a plain call, so unit tests are unaffected. The compliance rule lookup
+already carries `@trace.tool("hdb_rule_check", ...)` on `verdict_for`: keep it when replacing the body.
+
 ## Tests and evals
 
 - Offline graph tests use `tests/fakes.py` (`FAKE_NODES`) so they run without the model or the catalog.

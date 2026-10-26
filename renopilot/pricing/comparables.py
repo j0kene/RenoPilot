@@ -55,6 +55,7 @@ def _text_emb(spec: str, text: str) -> np.ndarray:
     return get_embedder(spec).texts([text])[0]
 
 
+@trace.tool("find_candidates", inputs=("product", "k"), output=lambda cands: [c.id for c in cands])
 def find_candidates(product: Product, pool: list[Product], index: CatalogIndex | None = None,
                     k: int = K_CANDIDATES) -> list[Product]:
     cands = [c for c in pool if c.item_type == product.item_type and c.source != product.source

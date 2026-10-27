@@ -18,6 +18,28 @@ and no agent can route around it. `shortlist -> pricing` is also fixed: every ne
 priced (landed cost, budget re-check) before the planner sees it. `build_graph(pricing=False)`
 drops the pricing node (the P0 graph, used as the ablation).
 
+## Master agent and subagents
+
+The **planner is the master agent**. Each step it makes one tool call (`extract_style`, `shortlist`,
+`ask_user`, `finalize`, defined in `nodes/planner.py`), and the call hands the work to a subagent node:
+`Command(goto=...)` routes there, the subagent writes its result into the state, and control comes back.
+Code checks every call first (`check_action`); a refused call goes back to the master as that tool's
+result, once, then the fixed policy decides. The subagents are graph nodes, not tools inside one agent,
+so the gates stay graph edges: the master can hand over to Compliance (`finalize`) but cannot skip it.
+
+| subagent | node(s) | how it works | its tools |
+|---|---|---|---|
+| Style agent | `style_extract`, `shortlist` | one vision call for the profile; then a **shopper** ReAct agent per item type (`nodes/shopper.py`, `PICKER=react`) or one rerank call (`PICKER=rerank`) | `search_catalog`, `product_details`, `landed_price` (+ `Picks` to submit) |
+| Pricing agent | `pricing` | deterministic, plus a model judge for comparables | `landed_cost`, `find_candidates`, `basket_total` |
+| Compliance | `compliance_guard` | deterministic gate, every suggestion | `hdb_rule_check` |
+
+The shopper's hard rules (item type, budget cap, retailers, excluded ids) are bound into its tools when it is
+built, so its tool arguments can only ever narrow a search. Its picks must be ids its searches returned.
+
+On the Claude CLI backend, tool calling is emulated (the calls come back as JSON
+under an output schema); with `RENOPILOT_BACKEND=openai` it is native. Either way the agents see standard
+`AIMessage.tool_calls`. `RENOPILOT_LIVE=1 uv run pytest tests/test_llm_live.py -k tool` checks the CLI path.
+
 ## Data each node sees
 
 `Suggestion` (in `schemas.py`) is the unit everything passes around:

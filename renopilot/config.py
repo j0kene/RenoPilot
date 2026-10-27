@@ -27,12 +27,14 @@ MODELS = {
         "vision":  os.environ.get("RENOPILOT_MODEL_VISION", "sonnet"),
         "planner": os.environ.get("RENOPILOT_MODEL_PLANNER", "sonnet"),
         "rerank":  os.environ.get("RENOPILOT_MODEL_RERANK", "haiku"),
+        "shopper": os.environ.get("RENOPILOT_MODEL_SHOPPER", "sonnet"),
         "intake":  os.environ.get("RENOPILOT_MODEL_INTAKE", "haiku"),
     },
     "openai": {        # placeholder names: confirm current models and prices before switching
         "vision":  os.environ.get("RENOPILOT_MODEL_VISION", "gpt-4.1-mini"),
         "planner": os.environ.get("RENOPILOT_MODEL_PLANNER", "gpt-4.1-mini"),
         "rerank":  os.environ.get("RENOPILOT_MODEL_RERANK", "gpt-4.1-mini"),
+        "shopper": os.environ.get("RENOPILOT_MODEL_SHOPPER", "gpt-4.1-mini"),
         "intake":  os.environ.get("RENOPILOT_MODEL_INTAKE", "gpt-4.1-mini"),
     },
 }
@@ -45,6 +47,9 @@ WIDE_K = 50            # candidates kept after fusion, before the rerank
 TOP_K = 5              # shortlist size per item type
 MIN_IN_BUDGET = 3      # fewer in-budget matches than this -> ask the user (autonomy boundary)
 RRF_K = 60             # reciprocal-rank-fusion constant
+# How the shortlist picks from the catalog: "react" (a shopper subagent per item type, calling the
+# catalog tools itself: nodes/shopper.py) or "rerank" (one fixed search, one model call picks).
+PICKER = os.environ.get("RENOPILOT_PICKER", "react")
 
 # Which catalog the graph shortlists from. ABO has no prices, so the budget-aware demo uses
 # the SG retailers. RENOPILOT_SOURCES: "sg" (default) | "all" | comma-separated sources.

@@ -8,6 +8,7 @@ Pipeline per item type:
     hard filters (type, price cap, excluded ids)        code
     3 rankings fused by RRF, keep WIDE_K                 catalog/search.py
     rerank to TOP_K with a one-line reason each          text model; ids constrained by schema
+    or a shopper agent per item type (PICKER=react)      ReAct: searches, checks, picks (shopper.py)
     escalate if fewer than MIN_IN_BUDGET survive         autonomy boundary from the proposal
 """
 from __future__ import annotations
@@ -146,9 +147,13 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
                     *, item_types: list[str] | None = None, exclude_ids: set[str] = frozenset(),
                     sources: tuple[str, ...] | None = SG_SOURCES, index: CatalogIndex | None = None,
                     signals: tuple[str, ...] = ALL_SIGNALS, use_rerank: bool = True,
+                    picker: str | None = None, shopper_model=None,
                     k: int = config.TOP_K) -> tuple[list[Suggestion], list[str]]:
     """Returns (suggestions, escalations). Finishes and built-ins become product-less
-    suggestions so the compliance guard sees them; loose furniture gets real products."""
+    suggestions so the compliance guard sees them; loose furniture gets real products.
+    picker: "react" (a shopper agent per item type) | "rerank"; default config.PICKER."""
+    from renopilot.nodes.shopper import shop          # the shopper imports this module
+    picker = picker or config.PICKER
     index = index or get_index()
     specs = list({s.item_type: s for s in reversed(profile.items)
                   if item_types is None or s.item_type in item_types}.values())[::-1]   # one per type, first wins
@@ -180,11 +185,15 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
 
     def pick(job):
         spec, hits = job
-        if use_rerank:
-            return spec, rerank(spec, profile, hits, k)
-        return spec, [(h, "Ranked by search") for h in hits[:k]]
+        if not use_rerank:
+            return spec, [(h, "Ranked by search") for h in hits[:k]]
+        if picker == "react":
+            return spec, shop(spec, profile, index, fallback=hits, cap=caps.get(spec.item_type), sources=sources,
+                              exclude_ids=exclude_ids, board_emb=board_emb, signals=signals, k=k,
+                              model=shopper_model)
+        return spec, rerank(spec, profile, hits, k)
 
-    with ThreadPoolExecutor(max_workers=3) as pool:             # one CLI process per item type
+    with ThreadPoolExecutor(max_workers=max(1, len(jobs))) as pool:   # all item types at once, one CLI process each
         futures = [pool.submit(contextvars.copy_context().run, pick, job) for job in jobs]  # keep the tracer
         for spec, picked in (f.result() for f in futures):
             for h, reason in picked:
@@ -204,20 +213,29 @@ def style_extract_node(state: dict) -> dict:
                        "why": f"{profile.style_tags}; items {[i.item_type for i in profile.items]}"}]}
 
 
-def shortlist_node(state: dict) -> dict:
-    profile: StyleProfile = state["style_profile"]
-    types = state.get("shortlist_types") or [i.item_type for i in profile.items]
-    refinements = state.get("refinements") or {}
-    if refinements:                                   # owner feedback becomes extra search words
-        profile = profile.model_copy(update={"items": [
-            i.model_copy(update={"description": f"{i.description}; {refinements[i.item_type]}"})
-            if i.item_type in refinements else i for i in profile.items]})
-    # owner and guard rejections are final; a pricing removal is not (a raised budget can bring it back)
-    exclude = {r["product_id"] for r in state.get("rejected") or [] if r.get("product_id") and r.get("by") != "pricing"}
-    new, escalations = build_shortlist(profile, state.get("project"), state.get("board_images") or [],
-                                       item_types=types, exclude_ids=exclude, sources=config.SHORTLIST_SOURCES)
-    kept = [s for s in state.get("suggestions") or [] if s.item_type not in types or s.status == "rejected"]
-    return {"suggestions": kept + new, "escalations": escalations, "open_issues": escalations,
-            "redo_types": [t for t in state.get("redo_types") or [] if t not in types], "shortlist_types": [],
-            "trace": [{"node": "shortlist", "action": "searched",
-                       "why": f"{len(new)} suggestions for {types}; {len(escalations)} escalations"}]}
+def make_shortlist(index: CatalogIndex | None = None, signals: tuple[str, ...] = ALL_SIGNALS, shopper_model=None):
+    """Factory so the offline demo (renopilot/demo.py) can bring its own catalog and shopper model."""
+
+    def shortlist_node(state: dict) -> dict:
+        profile: StyleProfile = state["style_profile"]
+        types = state.get("shortlist_types") or [i.item_type for i in profile.items]
+        refinements = state.get("refinements") or {}
+        if refinements:                                   # owner feedback becomes extra search words
+            profile = profile.model_copy(update={"items": [
+                i.model_copy(update={"description": f"{i.description}; {refinements[i.item_type]}"})
+                if i.item_type in refinements else i for i in profile.items]})
+        # owner and guard rejections are final; a pricing removal is not (a raised budget can bring it back)
+        exclude = {r["product_id"] for r in state.get("rejected") or [] if r.get("product_id") and r.get("by") != "pricing"}
+        new, escalations = build_shortlist(profile, state.get("project"), state.get("board_images") or [],
+                                           item_types=types, exclude_ids=exclude, sources=config.SHORTLIST_SOURCES,
+                                           index=index, signals=signals, shopper_model=shopper_model)
+        kept = [s for s in state.get("suggestions") or [] if s.item_type not in types or s.status == "rejected"]
+        return {"suggestions": kept + new, "escalations": escalations, "open_issues": escalations,
+                "redo_types": [t for t in state.get("redo_types") or [] if t not in types], "shortlist_types": [],
+                "trace": [{"node": "shortlist", "action": "searched",
+                           "why": f"{len(new)} suggestions for {types}; {len(escalations)} escalations"}]}
+
+    return shortlist_node
+
+
+shortlist_node = make_shortlist()

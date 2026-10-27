@@ -1,8 +1,10 @@
-"""Stand-ins so the graph runs with no model and no catalog: fake style nodes and a fake
-planner model that replays scripted decisions."""
+"""Stand-ins so the graph runs with no model and no catalog: fake style nodes, a fake
+planner model that replays scripted decisions, and a scripted tool-calling chat model."""
 from __future__ import annotations
 
-from langchain_core.messages import AIMessage
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import RunnableLambda
 
 from renopilot.schemas import ItemSpec, StyleProfile, Suggestion
@@ -68,6 +70,47 @@ class ScriptedPlanner:
         return RunnableLambda(run)
 
 
+class ScriptedToolModel(BaseChatModel):
+    """A chat model that replays one tool call per turn, [(name, args), ...], for agents
+    (create_agent binds tools and reads AIMessage.tool_calls). A real model, so callbacks fire."""
+
+    script: list = []
+
+    @property
+    def _llm_type(self) -> str:
+        return "scripted"
+
+    def bind_tools(self, tools, **_):
+        return self
+
+    def _generate(self, messages, stop=None, run_manager=None, **_):
+        return self._call(*self.script.pop(0), n=len(messages))
+
+    @staticmethod
+    def _call(name, args, n):
+        msg = AIMessage("", tool_calls=[{"name": name, "args": args, "id": f"call_{n}"}],
+                        usage_metadata={"input_tokens": 100, "output_tokens": 10, "total_tokens": 110})
+        return ChatResult(generations=[ChatGeneration(message=msg)])
+
+
+class FakeShopperModel(ScriptedToolModel):
+    """Plays the shopper from the conversation so far (stateless, so one instance can serve
+    every item type's thread): search with the item's description, price the first hit, pick it."""
+
+    def _generate(self, messages, stop=None, run_manager=None, **_):
+        results = [m for m in messages if isinstance(m, ToolMessage)]
+        rows = results[0].content.split("\n")[1:] if results else []
+        first = rows[0].split(" | ")[0] if rows else None
+        if not results:
+            item = next(m.content for m in messages if m.type == "human").split("ITEM TO SHOP FOR: ")[1]
+            call = ("search_catalog", {"query": item.split(": ", 1)[1].split("\n")[0]})
+        elif len(results) == 1 and first:
+            call = ("landed_price", {"product_id": first})
+        else:
+            call = ("Picks", {"picks": [{"product_id": first, "reason": "fake pick"}] if first else []})
+        return self._call(*call, n=len(messages))
+
+
 # ---------------------------------------------------------------- pricing in the fake world
 def fake_priced_catalog():
     """The fake shortlist's products as IKEA SG listings: sofas need home delivery (S$35),
@@ -87,6 +130,16 @@ class StaleFx:
     def get(self, currency):
         from renopilot.pricing.fx import FxRate
         return FxRate(currency, 1.0, "2026-10-20", "2026-10-20T00:00:00+00:00", "old cache", True)
+
+
+def fake_index():
+    """The fake catalog as a search index: BM25 only (no embeddings), so search with signals=("bm25",)."""
+    import numpy as np
+
+    from renopilot.catalog.search import CatalogIndex
+    products = [p.model_copy(update={"price_sgd": p.price, "title": f"{p.item_type.replace('_', ' ')} {p.id}"})
+                for p in fake_priced_catalog().values()]
+    return CatalogIndex(products, np.zeros((len(products), 4)), "none")
 
 
 def fake_pricing_node(stale: bool = False):

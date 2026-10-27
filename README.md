@@ -72,7 +72,7 @@ Results append to `evals/results/*.jsonl`, so an interrupted run resumes where i
 ```
 renopilot/   config, llm (model per role), schemas + vocab + state (shared contracts), trace
   catalog/   store (SQLite), embed (open_clip/SigLIP), search (hybrid + RRF), taxonomy (title -> type)
-  nodes/     intake, planner, style, guard_stub, approval (+ ask_user), respond
+  nodes/     intake, planner (master agent), style + shopper (ReAct subagent), guard_stub, approval (+ ask_user), respond
   tools/     budget (deterministic money maths)
   pricing/   rules, fx, landed_cost (deterministic), comparables (model-judged), node
   graph.py   the LangGraph wiring;  run_cli.py  terminal demo

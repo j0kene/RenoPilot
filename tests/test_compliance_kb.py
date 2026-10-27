@@ -1,0 +1,46 @@
+"""HDB rule cards: every card is cited and grounded, every finish/built-in is covered."""
+import re
+
+import pytest
+
+from renopilot import config
+from renopilot.compliance import cards, rules_for
+from renopilot.vocab import LOOSE_FURNITURE, WORK_TYPE_OF
+
+RAW = config.DATA / "raw" / "hdb"
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", s.replace("’", "'")).strip().lower()
+
+
+def test_every_card_is_cited():
+    for c in cards():
+        assert c["url"].startswith("https://"), c["id"]
+        assert c["decision"] in ("allow", "allow_with_permit", "block", "escalate"), c["id"]
+        assert set(c["item_types"]) <= set(WORK_TYPE_OF), c["id"]
+
+
+@pytest.mark.skipif(not RAW.exists(), reason="run data/scripts/fetch_hdb_sources.py to check quotes")
+def test_every_quote_is_in_its_source():
+    for c in cards():
+        text = _norm((RAW / f"{c['source']}.txt").read_text(encoding="utf-8"))
+        missing = [p for p in re.split(r" \| | / ", c["quote"]) if _norm(p) not in text]
+        assert not missing, (c["id"], missing)
+
+
+def test_every_finish_and_built_in_has_a_card():
+    for t, work in WORK_TYPE_OF.items():
+        if work != "loose_furniture":
+            assert rules_for(t), t
+
+
+def test_loose_furniture_has_no_rules():
+    assert not any(rules_for(t) for t in LOOSE_FURNITURE)
+
+
+def test_rooms():
+    assert rules_for("floor_tiles", room="bathroom")[0]["id"] == "HDB-BATH-3YR"
+    assert "HDB-BATH-3YR" not in [c["id"] for c in rules_for("floor_tiles")]
+    assert "HDB-BATH-3YR" in [c["id"] for c in rules_for("bathroom_finishes")]        # room implied
+    assert "HDB-KITCHEN-CABINET" in [c["id"] for c in rules_for("kitchen_cabinets")]

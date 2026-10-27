@@ -2,6 +2,7 @@
 planner model that replays scripted decisions."""
 from __future__ import annotations
 
+from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
 from renopilot.schemas import ItemSpec, StyleProfile, Suggestion
@@ -51,18 +52,19 @@ FAKE_NODES = {"style_extract": fake_style_extract, "shortlist": fake_shortlist, 
 
 
 class ScriptedPlanner:
-    """Replays Decision dicts in order; behaves like model.with_structured_output(...)."""
+    """Replays Decision dicts in order as tool calls; behaves like model.bind_tools(...)."""
 
     def __init__(self, decisions):
         self.decisions = list(decisions)
         self.calls = 0
 
-    def with_structured_output(self, schema, include_raw=False, **_):
+    def bind_tools(self, tools, **_):
         def run(_msgs):
             self.calls += 1
-            d = self.decisions.pop(0) if self.decisions else None
-            parsed = schema.model_validate(d) if d else None
-            return {"raw": None, "parsed": parsed, "parsing_error": None if parsed else ValueError("no reply")}
+            if not self.decisions:
+                return AIMessage("")                     # no tool call
+            d = dict(self.decisions.pop(0))
+            return AIMessage("", tool_calls=[{"name": d.pop("action"), "args": d, "id": f"call_{self.calls}"}])
         return RunnableLambda(run)
 
 

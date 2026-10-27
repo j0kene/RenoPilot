@@ -1,13 +1,15 @@
-"""The planner: decides the next step from a fixed menu. The model decides; code enforces.
+"""The planner: the MASTER agent. Each step it calls one tool, and each tool hands the work to a
+subagent node (the Command it returns routes there). The model decides; code enforces.
 
-    extract_style   read the board                      needs a usable board, no profile yet
-    shortlist       find products for some item types   needs a profile; types must be on the board
-    ask_user        stop and ask the owner              needs a question
-    finalize        hand the shortlist to the guard     needs at least one suggestion
+    extract_style   Style agent reads the board          needs a usable board, no profile yet
+    shortlist       Style agent's shoppers find products  needs a profile; types must be on the board
+                    (the Pricing agent prices every new shortlist: a fixed edge)
+    ask_user        stop and ask the owner                needs a question
+    finalize        hand over to the Compliance gate      needs at least one suggestion
 
-`check_action` holds the rules. A refused decision goes back to the model once with the
-reason (course: a checkable rejection reason and a round cap); after that, or if the reply
-does not parse, the fixed policy decides. The step cap ends the turn with an escalation.
+`check_action` holds the rules. A refused call goes back to the model once, as that tool's
+result with the reason (course: a checkable rejection reason and a round cap); after that, or
+if the reply has no valid tool call, the fixed policy decides. The step cap ends the turn.
 
 `fixed_policy` is also the whole planner in the "fixed pipeline" baseline, which is how the
 eval shows whether the LLM planner earns its cost.
@@ -21,9 +23,9 @@ from __future__ import annotations
 import time
 from typing import Literal, Optional
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.types import Command
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, create_model
 
 from renopilot import config, trace
 from renopilot.llm import get_model, usage_of
@@ -34,6 +36,7 @@ MENU = ("extract_style", "shortlist", "ask_user", "finalize")
 GOTO = {"extract_style": "style_extract", "shortlist": "shortlist", "ask_user": "ask_user",
         "finalize": "compliance_guard"}
 MAX_REVISIONS = 1
+PROMPT_VERSION = "planner-tools-v1"     # v0 (structured output) results: evals/results/graph_llm_sonnet*.jsonl
 
 
 class Decision(BaseModel):
@@ -46,14 +49,27 @@ class Decision(BaseModel):
     why: str = Field(description="One sentence")
 
 
+# The master's tools: one per menu action, args as in Decision. Calling one hands over to a subagent.
+_WHY = (str, Field(description="One sentence: why this step now"))
+TOOLS = [
+    create_model("extract_style", __doc__="Style agent: read the mood board into a style profile "
+                 "(only if there is no profile yet).", why=_WHY),
+    create_model("shortlist", __doc__="Style agent: find products for the listed item types; the Pricing agent "
+                 "then prices them. Use it first for all shoppable items on the board, and again for item types "
+                 "the owner rejected, with a refinement drawn from their feedback.",
+                 item_types=(list[ItemType], Field(description="Which item types to (re)search")),
+                 refinement=(Optional[str], Field(None, description="Extra search words drawn from the owner's "
+                                                                    "feedback, at most 12 words")), why=_WHY),
+    create_model("ask_user", __doc__="Ask the owner ONE short question, when an open issue needs their decision "
+                 "(e.g. too few products within budget, or an unclear request).",
+                 question=(str, Field(description="One short question for the owner")), why=_WHY),
+    create_model("finalize", __doc__="Hand the current shortlist to the compliance check and the owner's "
+                 "approval.", why=_WHY),
+]
+
 PLANNER_SYSTEM = """You coordinate RenoPilot, which turns a homeowner's mood board into a shortlist of products.
-Choose the single next action from the menu:
-- extract_style: read the mood board into a style profile (only if there is no profile yet).
-- shortlist: search products for the listed item types. Use it first for all shoppable items on the board,
-  and again for item types the owner rejected, with a refinement drawn from their feedback.
-- ask_user: ask the owner ONE short question, when an open issue needs their decision
-  (e.g. too few products within budget, or an unclear request). You cannot change the budget yourself.
-- finalize: hand the current shortlist on for the compliance check and the owner's approval.
+You are the master agent: call exactly ONE tool for the next step; each tool hands the work to a subagent.
+You cannot change the budget yourself: only the owner can, when you ask them.
 Be economical: do not repeat a step that has already succeeded."""
 
 
@@ -147,21 +163,29 @@ def _briefing(state: dict) -> str:
 
 
 def llm_decide(state: dict, model=None) -> Decision:
-    model = model or get_model("planner")
+    model = (model or get_model("planner")).bind_tools(TOOLS, tool_choice="any")
     msgs = [SystemMessage(PLANNER_SYSTEM), HumanMessage(_briefing(state))]
     for attempt in range(MAX_REVISIONS + 1):
         t0 = time.perf_counter()
-        out = model.with_structured_output(Decision, include_raw=True).invoke(msgs)
+        reply = model.invoke(msgs)
+        calls, d, error = reply.tool_calls, None, None if reply.tool_calls else "no tool call"
+        if calls:
+            try:
+                d = Decision.model_validate({**calls[0]["args"], "action": calls[0]["name"]})
+            except ValidationError as e:
+                error = str(e)
         trace.log("planner", "model_call", attempt=attempt, latency_s=round(time.perf_counter() - t0, 2),
-                  **usage_of(out["raw"]), error=str(out["parsing_error"]) if out["parsing_error"] else None)
-        d = out["parsed"]
+                  prompt_version=PROMPT_VERSION, **usage_of(reply), tool_calls=[c["name"] for c in calls],
+                  error=error)
         if d is None:
             break
         reason = check_action(state, d)
         if reason is None:
             return d
         trace.log("planner", "refused", action=d.action, reason=reason)
-        msgs.append(HumanMessage(f"Not allowed: {reason}. Choose again."))
+        msgs += [reply] + [ToolMessage(f"Not allowed: {reason}. Choose again." if i == 0 else
+                                       "Ignored: call one tool at a time.", tool_call_id=c["id"], name=c["name"])
+                           for i, c in enumerate(calls)]
     d = fixed_policy(state)
     trace.log("planner", "fallback", action=d.action)
     return d.model_copy(update={"why": f"fallback to fixed policy: {d.why}"})

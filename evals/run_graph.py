@@ -24,6 +24,7 @@ from PIL import Image  # noqa: E402
 from evals.harness import AgentResult, load_cases, run_eval  # noqa: E402
 from renopilot import config, trace  # noqa: E402
 from renopilot.graph import build_graph  # noqa: E402
+from renopilot.nodes.planner import PROMPT_VERSION  # noqa: E402
 from renopilot.schemas import ProjectProfile  # noqa: E402
 from renopilot.tools.budget import caps_for  # noqa: E402
 from tests.fakes import FAKE_NODES, fake_pricing_node  # noqa: E402
@@ -182,8 +183,8 @@ def main() -> None:
     reports = {}
     for planner in (["fixed", "llm"] if args.planner == "both" else [args.planner]):
         n = 1 if planner == "fixed" and not args.real_style else args.n_runs     # fixed + fakes is deterministic
-        out = config.ROOT / "evals" / "results" / f"graph_{planner}_{planner_model if planner == 'llm' else 'na'}" \
-                                                  f"{'_real' if args.real_style else ''}.jsonl"
+        tag = f"{planner_model}_{PROMPT_VERSION}" if planner == "llm" else "na"
+        out = config.ROOT / "evals" / "results" / f"graph_{planner}_{tag}{'_real' if args.real_style else ''}.jsonl"
         reports[planner] = run_eval(make_agent(planner, args.real_style), cases, grade, n_runs=n,
                                     name=f"planner={planner}", resume_file=out)
     print()

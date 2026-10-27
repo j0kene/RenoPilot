@@ -1,9 +1,10 @@
 """Smoke tests for the model backend, one per thing a node needs: text, structured output,
-an image. Run with RENOPILOT_LIVE=1 (each call takes a few seconds)."""
+an image, tool calling. Run with RENOPILOT_LIVE=1 (each call takes a few seconds)."""
 from typing import Literal
 
 import pytest
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.tools import tool
 from PIL import Image
 from pydantic import BaseModel
 
@@ -39,3 +40,15 @@ def test_structured_nested_with_image(tmp_path):
     assert out["parsing_error"] is None
     got = {(s.side, s.name) for s in out["parsed"].swatches}
     assert ("left", "blue") in got and ("right", "gold") in got
+
+
+@tool
+def add(a: int, b: int) -> int:
+    """Add two integers."""
+    return a + b
+
+
+def test_tool_calling():
+    msg = ClaudeCLIChat(model="haiku").bind_tools([add], tool_choice="any").invoke(
+        [HumanMessage("What is 2 + 3? Use the add tool.")])
+    assert [(c["name"], c["args"]) for c in msg.tool_calls] == [("add", {"a": 2, "b": 3})]

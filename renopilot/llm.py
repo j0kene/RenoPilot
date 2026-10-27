@@ -10,6 +10,8 @@ Caveats of the CLI backend (write these up in the report):
   - one process per call: a few seconds of overhead each time
   - subscription rate limits: run evals sequentially, make them resumable
   - `total_cost_usd` is the API-equivalent price, not what the subscription charges
+  - no native tool calling for our tools: `bind_tools` asks for the tool calls as JSON
+    (--json-schema) and turns them back into AIMessage.tool_calls, so agents work unchanged
 """
 from __future__ import annotations
 
@@ -18,14 +20,16 @@ import io
 import json
 import shutil
 import subprocess
+import uuid
 from pathlib import Path
 from typing import Any
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import RunnableLambda
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import BaseModel
 
 from renopilot import config
@@ -100,6 +104,29 @@ def _inline_refs(schema: dict) -> dict:
     return walk(schema)
 
 
+def _tool_protocol(tools: list[dict], tool_choice: Any) -> tuple[str, dict]:
+    """System-prompt addendum and reply schema for one tool-calling turn. Each call's args are
+    constrained by that tool's own schema (anyOf over the tools)."""
+    fns = [t["function"] for t in tools]
+    name = tool_choice.get("function", {}).get("name") if isinstance(tool_choice, dict) else tool_choice
+    if isinstance(name, str) and name not in ("auto", "any", "required"):
+        fns = [f for f in fns if f["name"] == name]            # a forced tool
+    must = tool_choice not in (None, "auto", False)
+    calls = {"type": "array", "items": {"anyOf": [
+        {"type": "object", "required": ["name", "args"],
+         "properties": {"name": {"type": "string", "enum": [f["name"]]},
+                        "args": _inline_refs(f.get("parameters") or {"type": "object", "properties": {}})}}
+        for f in fns]}} | ({"minItems": 1} if must else {})
+    schema = {"type": "object", "required": ["tool_calls"],
+              "properties": {"content": {"type": "string"}, "tool_calls": calls}}
+    text = ("TOOLS. You can call these tools; each call's args must match that tool's schema.\n"
+            + "\n".join(f"- {f['name']}: {f.get('description', '')}" for f in fns)
+            + "\nReply with tool_calls (name and args of each call) and, optionally, a short note in content. "
+            + ("You must call at least one tool." if must else
+               "To answer without a tool, leave tool_calls empty and answer in content."))
+    return text, schema
+
+
 # --------------------------------------------------------------------------- the model
 class ClaudeCLIChat(BaseChatModel):
     """LangChain chat model backed by `claude -p` (stream-json in and out)."""
@@ -121,15 +148,23 @@ class ClaudeCLIChat(BaseChatModel):
         blocks: list[dict] = []
         for m in convo:
             if len(convo) > 1:
-                blocks.append({"type": "text", "text": f"[{m.type}]"})
+                label = f"[tool result: {m.name}]" if isinstance(m, ToolMessage) and m.name else f"[{m.type}]"
+                blocks.append({"type": "text", "text": label})
             parts = m.content if isinstance(m.content, list) else [m.content]
-            blocks += [b for b in (_to_anthropic_block(p) for p in parts) if b]
+            blocks += [b for b in (_to_anthropic_block(p) for p in parts)          # the API rejects empty text
+                       if b and (b["type"] != "text" or b["text"].strip())]
+            blocks += [{"type": "text", "text": f"called {c['name']}({json.dumps(c['args'], ensure_ascii=False)})"}
+                       for c in getattr(m, "tool_calls", None) or []]
         return system, blocks
 
     def _generate(self, messages: list[BaseMessage], stop: list[str] | None = None,
                   run_manager: CallbackManagerForLLMRun | None = None,
-                  json_schema: dict | None = None, **kwargs: Any) -> ChatResult:
+                  json_schema: dict | None = None, tools: list[dict] | None = None,
+                  tool_choice: Any = None, **kwargs: Any) -> ChatResult:
         system, blocks = self._build_turn(messages)
+        if tools and tool_choice != "none":
+            protocol, json_schema = _tool_protocol(tools, tool_choice)
+            system = f"{system}\n\n{protocol}" if system else protocol
         exe = shutil.which(self.cli) or self.cli
         argv = [exe, "-p", "--input-format", "stream-json", "--output-format", "stream-json",
                 "--verbose", "--model", self.model, "--tools", "", "--no-session-persistence",
@@ -163,8 +198,14 @@ class ClaudeCLIChat(BaseChatModel):
         n_in = (usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
                 + usage.get("cache_read_input_tokens", 0))
         n_out = usage.get("output_tokens", 0)
+        content, tool_calls = result.get("result") or "", []
+        if tools and tool_choice != "none" and isinstance(result.get("structured_output"), dict):
+            reply = result["structured_output"]
+            content = reply.get("content") or ""
+            tool_calls = [{"name": c["name"], "args": c.get("args") or {}, "id": f"call_{uuid.uuid4().hex[:24]}",
+                           "type": "tool_call"} for c in reply.get("tool_calls") or [] if c.get("name")]
         msg = AIMessage(
-            content=result.get("result") or "",
+            content=content, tool_calls=tool_calls,
             usage_metadata={"input_tokens": n_in, "output_tokens": n_out,
                             "total_tokens": n_in + n_out},
             response_metadata={"model": self.model, "backend": "claude_cli",
@@ -173,6 +214,10 @@ class ClaudeCLIChat(BaseChatModel):
                                "structured_output": result.get("structured_output")},
         )
         return ChatResult(generations=[ChatGeneration(message=msg)])
+
+    def bind_tools(self, tools: list, *, tool_choice: Any = None, **kwargs: Any):
+        """Standard tool binding (create_agent and ToolNode call this); see _tool_protocol."""
+        return self.bind(tools=[convert_to_openai_tool(t) for t in tools], tool_choice=tool_choice, **kwargs)
 
     def with_structured_output(self, schema: type[BaseModel] | dict, *, include_raw: bool = False,
                                **kwargs: Any):
@@ -199,12 +244,12 @@ class ClaudeCLIChat(BaseChatModel):
                 raise ClaudeCLIError(f"format_error: {err}") from err
             return parsed
 
-        return RunnableLambda(run)
+        return RunnableLambda(run, name=schema.__name__ if is_model else "structured_output")   # span name in traces
 
 
 # --------------------------------------------------------------------------- factory
 def get_model(role: str) -> BaseChatModel:
-    """role: vision | planner | rerank | intake."""
+    """role: vision | planner | rerank | shopper | intake."""
     name = config.MODELS[config.BACKEND][role]
     if config.BACKEND == "claude_cli":
         return ClaudeCLIChat(model=name)

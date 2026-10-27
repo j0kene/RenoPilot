@@ -42,7 +42,7 @@ def make_pricing(products: dict[str, Product] | None = None, pool: list[Product]
         fxp = fx or FxProvider(stale_hours=rules.fx_stale_hours)
         by_id, all_products = (products, pool) if products is not None else _catalog()
         idx = index
-        if idx is None and comparables:
+        if idx is None and comparables and products is None:     # an injected catalog has no embeddings
             from renopilot.nodes.style import get_index
             idx = get_index()
 

@@ -34,7 +34,8 @@ Sources, licences and snapshot dates: [data/SOURCES.md](data/SOURCES.md).
 ## Run
 
 ```bash
-python -m uv run --group ui streamlit run app/streamlit_app.py     # demo UI (temporary)
+python -m uv run --group ui streamlit run app/streamlit_app.py     # demo UI: "Demo (offline)" mode needs no setup
+python -m uv run python evals/demo_trace.py                          # the same offline demo, scripted, to Langfuse
 python -m uv run python -m renopilot.run_cli --board data/boards/japandi_01 --budget sofa=1500,coffee_table=400
 python -m uv run python -m renopilot.run_cli --board a.jpg b.jpg c.jpg --total 6000 --planner fixed
 python -m uv run python -m renopilot.graph      # print the graph as mermaid
@@ -73,6 +74,7 @@ Results append to `evals/results/*.jsonl`, so an interrupted run resumes where i
 renopilot/   config, llm (model per role), schemas + vocab + state (shared contracts), trace
   catalog/   store (SQLite), embed (open_clip/SigLIP), search (hybrid + RRF), taxonomy (title -> type)
   nodes/     intake, planner (master agent), style + shopper (ReAct subagent), guard_stub, approval (+ ask_user), respond
+  demo.py    the offline demo world: models played by code, a made-up sample catalog
   tools/     budget (deterministic money maths)
   pricing/   rules, fx, landed_cost (deterministic), comparables (model-judged), node
   graph.py   the LangGraph wiring;  run_cli.py  terminal demo

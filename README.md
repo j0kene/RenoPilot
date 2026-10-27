@@ -10,13 +10,11 @@ its data and evals. Pricing is in (`renopilot/pricing/`); Compliance plugs into 
 ```bash
 python -m pip install --user uv
 python -m uv sync                      # creates .venv from uv.lock
-copy .env.example .env                 # optional overrides
+copy .env.example .env                 # model and Langfuse settings
 python -m uv run pytest                # offline tests, no model calls
 ```
 
-The model backend is the Claude Code CLI (`claude -p`) for every role while we build and evaluate, so you must
-be logged in to Claude Code. Live tests: `set RENOPILOT_LIVE=1 && python -m uv run pytest tests/test_llm_live.py`.
-Switching to OpenAI later: set `RENOPILOT_BACKEND=openai` and `OPENAI_API_KEY` in `.env`.
+Set `RENOPILOT_BACKEND=claude_cli` (default) or `openai` in `.env`. Claude CLI uses a Claude Code login or token; the OpenAI API backend uses `OPENAI_API_KEY`. Per-role models can be set with `RENOPILOT_MODEL_VISION`, `RENOPILOT_MODEL_PLANNER`, `RENOPILOT_MODEL_RERANK`, `RENOPILOT_MODEL_SHOPPER`, and `RENOPILOT_MODEL_INTAKE`. Live tests: `set RENOPILOT_LIVE=1 && python -m uv run pytest tests/test_llm_live.py`.
 
 ## Data (frozen snapshots; large files are gitignored and rebuilt by script)
 
@@ -46,9 +44,9 @@ rates from Frankfurter. Overseas rows are currently synthetic sample data (see `
 
 Every run writes a JSONL trace to `runs/<run_id>.jsonl`, one row per node or model call.
 
-## Tracing in Langfuse (self-hosted, part of the compose stack)
+## Tracing in Langfuse (self-hosted, docker-compose.yml)
 
-`docker compose up -d langfuse-web` starts Langfuse alone (for runs on the host). Log in as `dev@renopilot.local` /
+`docker compose up -d` starts Langfuse at http://localhost:3000. Log in as `dev@renopilot.local` /
 `renopilot-local`; on first start the stack creates the project with the `LANGFUSE_*` keys from `.env`, so the app and
 the server always agree (comment the keys out to turn tracing off). Graph runs from the CLI, the Streamlit app and `evals/run_graph.py` then show up as one trace per conversation,
 with all the interrupt/resume turns in it: the master agent's tool calls, each subagent node, the shopper agents
@@ -81,4 +79,5 @@ renopilot/   config, llm (model per role), schemas + vocab + state (shared contr
 data/        scripts/, sg_catalog.csv, boards/, labels/ (raw/, images/, index/ are rebuilt)
 evals/       harness.py (week-3 contract + pass^k + CI + resume), cases/, run_*.py
 tests/       offline unit + graph tests (fakes.py), live backend smoke tests
+docker-compose.yml   self-hosted Langfuse for traces
 ```

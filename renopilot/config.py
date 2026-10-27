@@ -20,6 +20,7 @@ RUNS = ROOT / "runs"            # JSONL traces
 # --------------------------------------------------------------------------- models
 # One backend for every role while building and evaluating; swap at the end.
 BACKEND = os.environ.get("RENOPILOT_BACKEND", "claude_cli")      # claude_cli | openai
+EFFORT = os.environ.get("RENOPILOT_EFFORT", "")   # claude_cli: low|medium|high|... ; "" = model default
 
 MODELS = {
     "claude_cli": {

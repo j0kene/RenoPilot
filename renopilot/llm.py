@@ -169,6 +169,8 @@ class ClaudeCLIChat(BaseChatModel):
         argv = [exe, "-p", "--input-format", "stream-json", "--output-format", "stream-json",
                 "--verbose", "--model", self.model, "--tools", "", "--no-session-persistence",
                 "--system-prompt", system or "You are a helpful assistant."]
+        if config.EFFORT:
+            argv += ["--effort", config.EFFORT]
         if json_schema:
             argv += ["--json-schema", json.dumps(json_schema)]
         stdin = json.dumps({"type": "user", "message": {"role": "user", "content": blocks}})

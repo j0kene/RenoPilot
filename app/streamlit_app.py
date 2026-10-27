@@ -25,6 +25,7 @@ from renopilot.catalog.embed import slug  # noqa: E402
 from renopilot.compliance import PLAIN  # noqa: E402
 from renopilot.demo import demo_nodes  # noqa: E402
 from renopilot.graph import build_graph  # noqa: E402
+from renopilot.nodes.guard import blocked  # noqa: E402
 from renopilot.schemas import ProjectProfile  # noqa: E402
 from renopilot.tools.budget import fmt_sgd  # noqa: E402
 from renopilot.vocab import LOOSE_FURNITURE  # noqa: E402
@@ -137,6 +138,14 @@ def hdb_routes(c: dict) -> None:
             st.markdown(md(f"**{r['route']}** · {PLAIN[r['decision']]} · ") + f"[{r['rule_id']}]({r['citation']})")
             for cond in r["conditions"]:
                 st.caption(md(f"- {cond}"))
+
+
+def show_blocked(items: list[dict]) -> None:
+    """What the HDB guard blocked: shown with the reason and the legal alternative, never dropped."""
+    for b in items:
+        alt = f" Instead: {b['alternative']}" if b["alternative"] else ""
+        st.error(md(f"**Not allowed under HDB rules: {b['title'] or b['item_type'].replace('_', ' ')}.** "
+                    f"{b['reason']}{alt}") + f" [{b['rule_id']}]({b['citation']})")
 
 
 # --------------------------------------------------------------------------- session
@@ -320,6 +329,7 @@ elif gate and gate["type"] == "approval":
     st.subheader("Shortlist: approve or reject")
     for e in gate.get("escalations") or []:
         st.info(md(e))
+    show_blocked(gate.get("blocked") or [])
     with st.form("approval"):
         by_type: dict[str, list[dict]] = {}
         for c in gate["suggestions"]:
@@ -374,6 +384,7 @@ else:
     if msgs:
         st.subheader("Your shortlist")
         st.success("Shortlist approved." if state.get("approved") else "Finished.")
+        show_blocked(blocked(state.get("suggestions")))
         works = [x for x in state.get("suggestions") or [] if not x.product_id and x.status == "approved" and x.verdict]
         if works:
             st.markdown("#### Renovation works (HDB)")

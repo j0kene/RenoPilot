@@ -26,7 +26,7 @@ def cards() -> list[dict]:
 def rules_for(item_type: str, room: str | None = None) -> list[dict]:
     """Cards for this item type, room-specific first; a room-limited card needs that room.
     Empty for loose furniture; a finish/built-in without a card falls under rule("HDB-NOT-LISTED")."""
-    room = room or IMPLIED_ROOM.get(item_type)
+    room = IMPLIED_ROOM.get(item_type) or room        # bathroom finishes are in a bathroom, whatever the board
     out = [c for c in cards() if item_type in c["item_types"] and (not c["rooms"] or room in c["rooms"])]
     return sorted(out, key=lambda c: not c["rooms"])
 

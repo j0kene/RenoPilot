@@ -105,3 +105,23 @@ def test_answering_without_adding_images_does_not_bypass_the_board_rule(tmp_path
     assert g.get_state(cfg).values.get("style_profile") is None
     out = g.invoke(Command(resume={"answer": "added one", "board_images": _board(tmp_path, 3)}), cfg)
     assert out["__interrupt__"][0].value["type"] == "approval"
+
+
+def test_a_route_picked_at_approval_survives_a_rejection_round(tmp_path):
+    g, cfg, out = _start(tmp_path, budget_by_category={"sofa": 2000, "coffee_table": 400})
+    sofa = next(c for c in out["__interrupt__"][0].value["suggestions"] if c["item_type"] == "sofa")
+    out = g.invoke(Command(resume={"reject": [{"product_id": sofa["product_id"], "reason": "too bulky"}],
+                                   "routes": {"floor_tiles": "HDB-FLOOR-REPLACE"}}), cfg)
+    tiles = next(c for c in out["__interrupt__"][0].value["suggestions"] if c["item_type"] == "floor_tiles")
+    assert tiles["rule_id"] == "HDB-FLOOR-REPLACE"           # the guard's re-check keeps the owner's route
+
+
+def test_a_blocked_finish_is_shown_not_dropped(tmp_path, monkeypatch):
+    from renopilot.compliance import rule
+    monkeypatch.setattr("renopilot.nodes.guard.routes", lambda *a, **k: [rule("HDB-FLOOR-RAISE")])
+    g, cfg, out = _start(tmp_path, budget_by_category={"sofa": 2000, "coffee_table": 400})
+    gate = out["__interrupt__"][0].value
+    assert "floor_tiles" not in {c["item_type"] for c in gate["suggestions"]}
+    assert [b["rule_id"] for b in gate["blocked"]] == ["HDB-FLOOR-RAISE"]
+    final = g.invoke(Command(resume={"approve": "all"}), cfg)
+    assert "Not allowed under HDB rules" in final["messages"][-1].content

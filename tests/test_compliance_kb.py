@@ -6,7 +6,7 @@ import pytest
 
 from renopilot import config
 from renopilot.compliance import cards, routes, rules_for
-from renopilot.vocab import LOOSE_FURNITURE, WORK_TYPE_OF
+from renopilot.vocab import LOOSE_FURNITURE, ROOMS, WORK_TYPE_OF
 
 RAW = config.DATA / "raw" / "hdb"
 
@@ -60,3 +60,11 @@ def test_bathroom_routes_follow_the_block_age():
     new, old = ids(completion_date=date.today()), ids(completion_date=date(2015, 1, 1))
     assert "HDB-BATH-3YR" in new and "HDB-BATH-FLOOR-REPLACE" not in new
     assert "HDB-BATH-FLOOR-REPLACE" in old and "HDB-BATH-3YR" not in old
+
+
+def test_every_finish_and_built_in_has_a_legal_route_in_every_room():
+    """Otherwise the guard blocks the item outright: it is shown, but the owner gets no way to do it."""
+    for t, work in WORK_TYPE_OF.items():
+        if work != "loose_furniture":
+            for room in ROOMS:
+                assert any(c["decision"] != "block" for c in routes(t, room=room)), (t, room)

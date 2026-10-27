@@ -201,8 +201,10 @@ def make_planner(mode: str = "llm", model=None):
         if steps >= config.MAX_PLANNER_STEPS:
             msg = f"Stopped after {steps} planning steps without finishing; please review what is here."
             trace.log("planner", "step_cap", steps=steps)
-            return Command(goto="respond", update={"escalations": [msg],
-                                                   "trace": [{"node": "planner", "action": "step_cap", "why": msg}]})
+            # nothing reaches the owner unchecked: with suggestions, the cap exits through the guard
+            goto = "compliance_guard" if state.get("suggestions") else "respond"
+            return Command(goto=goto, update={"escalations": [msg],
+                                              "trace": [{"node": "planner", "action": "step_cap", "why": msg}]})
         d = fixed_policy(state) if mode == "fixed" else llm_decide(state, model)
         reason = check_action(state, d)
         if reason:                                   # the fixed policy is valid by construction; belt and braces

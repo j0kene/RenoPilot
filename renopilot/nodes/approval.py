@@ -17,6 +17,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command, interrupt
 
 from renopilot import trace
+from renopilot.nodes.guard import blocked, with_route
 from renopilot.tools.budget import fmt_sgd
 
 
@@ -71,22 +72,15 @@ def _card(s) -> dict:
                             for a in s.comparables]}
 
 
-def _take_route(s, rule_id: str | None):
-    """Put the owner's route in effect, if it is one of the guard's routes for s and not blocked."""
-    v = s.verdict
-    pick = next((o for o in (v.options if v else []) if o.rule_id == rule_id and o.decision != "block"), None)
-    return s.model_copy(update={"verdict": pick.model_copy(update={"options": v.options})}) if pick else s
-
-
 def approval(state: dict) -> Command:
     live = [s for s in state.get("suggestions") or [] if s.status != "rejected"]
     decision = interrupt({"type": "approval", "suggestions": [_card(s) for s in live],
-                          "escalations": state.get("escalations") or []})
+                          "blocked": blocked(state.get("suggestions")), "escalations": state.get("escalations") or []})
     # ---- after resume
     decision = decision if isinstance(decision, dict) else {"approve": "all"}
     chosen = decision.get("routes") or {}
-    suggestions = [_take_route(s, chosen.get(s.item_type)) if s.status != "rejected" else s
-                   for s in state.get("suggestions") or []]
+    suggestions = [s.model_copy(update={"verdict": with_route(s.verdict, chosen[s.item_type])})
+                   if s.status != "rejected" and s.item_type in chosen else s for s in state.get("suggestions") or []]
     rejects = {r["product_id"]: r.get("reason", "") for r in decision.get("reject", []) if r.get("product_id")}
     by_id = {s.product_id: s for s in live if s.product_id}
     unknown = [pid for pid in rejects if pid not in by_id]

@@ -62,6 +62,9 @@ def test_extract_style_refused_while_board_too_small_even_with_no_open_issue():
 def test_step_cap_ends_the_turn():
     out = make_planner("fixed")({"steps": config.MAX_PLANNER_STEPS})
     assert out.goto == "respond" and "Stopped" in out.update["escalations"][0]
+    s = Suggestion(product_id="x", item_type="sofa", work_type="loose_furniture")
+    out = make_planner("fixed")({"steps": config.MAX_PLANNER_STEPS, "suggestions": [s]})
+    assert out.goto == "compliance_guard"                  # nothing reaches the owner without a verdict
 
 
 def test_repeat_search_without_new_feedback_is_refused():

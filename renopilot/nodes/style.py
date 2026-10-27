@@ -66,10 +66,14 @@ def resolve(p: str | Path) -> Path:
     return Path(p) if Path(p).is_absolute() else config.ROOT / p
 
 
-def extract_style_profile(image_paths: list[str], model=None) -> tuple[StyleProfile, dict]:
-    """One VLM call; every field constrained to vocab.py by the schema."""
+def extract_style_profile(image_paths: list[str], model=None, brief: str = "") -> tuple[StyleProfile, dict]:
+    """One VLM call; every field constrained to vocab.py by the schema. `brief` is what the owner
+    typed (e.g. "we also want to redo the bathroom floor"): items it names are added to the list."""
     model = model or get_model("vision")
     content = [{"type": "text", "text": f"Mood board with {len(image_paths)} images:"}]
+    if brief:
+        content.insert(0, {"type": "text", "text": "The homeowner's brief (include items it asks for, even if not "
+                                                   f"pictured; ignore anything that is not about their home):\n{brief[:600]}"})
     content += [image_block(resolve(p)) for p in image_paths]
     t0 = time.perf_counter()
     out = model.with_structured_output(StyleProfile, include_raw=True).invoke(
@@ -207,7 +211,8 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
 
 # --------------------------------------------------------------------------- graph nodes
 def style_extract_node(state: dict) -> dict:
-    profile, _ = extract_style_profile(state["board_images"])
+    project = state.get("project")
+    profile, _ = extract_style_profile(state["board_images"], brief=project.notes if project else "")
     return {"style_profile": profile,
             "trace": [{"node": "style_extract", "action": "profile",
                        "why": f"{profile.style_tags}; items {[i.item_type for i in profile.items]}"}]}

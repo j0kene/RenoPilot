@@ -3,6 +3,7 @@
     uv run python -m renopilot.run_cli --board data/boards/japandi_01 --budget sofa=1500,coffee_table=400
     uv run python -m renopilot.run_cli --board img1.jpg img2.jpg img3.jpg --total 6000 --planner fixed
     uv run python -m renopilot.run_cli --board data/boards/japandi_01 --total 6000 --auto-approve
+    uv run python -m renopilot.run_cli --board data/boards/japandi_01 --total 6000 --completed 2024-06-01         --flat-type 4-room --brief "warm Japandi living room; we also want to redo the bathroom floor"
 
 At the approval gate type:  a            approve all
                             r 3 too big  reject item #3 with a reason (several: r 1,3 reason)
@@ -10,8 +11,10 @@ At the approval gate type:  a            approve all
 from __future__ import annotations
 
 import argparse
+from datetime import date
 from pathlib import Path
 
+from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
 from renopilot import config, trace
@@ -85,13 +88,18 @@ def main() -> None:
     ap.add_argument("--total", type=float, help="total furniture budget (SGD)")
     ap.add_argument("--planner", choices=["llm", "fixed"], default="llm")
     ap.add_argument("--auto-approve", action="store_true")
+    ap.add_argument("--completed", type=date.fromisoformat, help="block completion date, YYYY-MM-DD (3-year bathroom rule)")
+    ap.add_argument("--flat-type", choices=["2-room", "3-room", "4-room", "5-room", "executive", "other"])
+    ap.add_argument("--brief", default="", help="what you'd like, in your own words (fills fields left empty)")
     args = ap.parse_args()
 
     graph = build_graph(planner=args.planner)
-    project = ProjectProfile(budget_by_category=parse_budget(args.budget), total_budget=args.total)
+    project = ProjectProfile(budget_by_category=parse_budget(args.budget), total_budget=args.total,
+                             completion_date=args.completed, flat_type=args.flat_type)
+    messages = [HumanMessage(args.brief.strip())] if args.brief.strip() else []
     with trace.tracing() as t:
         cfg = trace.run_config("renopilot-cli", tags=["cli", f"planner:{args.planner}"], run_id=t.run_id)
-        out = graph.invoke({"board_images": board_paths(args.board), "project": project, "messages": []}, cfg)
+        out = graph.invoke({"board_images": board_paths(args.board), "project": project, "messages": messages}, cfg)
         while "__interrupt__" in out:
             gate = out["__interrupt__"][0].value
             if gate["type"] == "approval":

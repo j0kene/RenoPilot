@@ -2,31 +2,31 @@
   "hdb_building_works": {
     "url": "https://www.hdb.gov.sg/managing-my-home/renovation-and-maintenance/renovation/renovation-guidelines/building-works",
     "official": true,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 30112,
-    "sha256": "2aa024a3a65e1a6c"
+    "sha256": "389b7cc88b4b1a63"
   },
   "hdb_important_info": {
     "url": "https://www.hdb.gov.sg/managing-my-home/renovation-and-maintenance/renovation/important-information-on-renovations",
     "official": true,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 23773,
-    "sha256": "d4d1eba346f6883c"
+    "sha256": "c0f65116a1beffd3"
   },
   "hdb_permit": {
     "url": "https://www.hdb.gov.sg/managing-my-home/renovation-and-maintenance/renovation/application-for-a-renovation-permit",
     "official": true,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 8833,
-    "sha256": "df6e0e2b7bfb9b26"
+    "sha256": "076fe9f3757077d6"
   },
   "mynicehome_reno": {
     "url": "https://www.mynicehome.gov.sg/get-settled-in/hdb-renovation-guide/",
     "official": true,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 7663,
     "sha256": "33127f9443402815"
@@ -34,7 +34,7 @@
   "homeanddecor_dos": {
     "url": "https://www.homeanddecor.com.sg/how-to/home-tips-the-dos-and-donts-when-renovating-your-hdb-flat",
     "official": false,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 35700,
     "sha256": "c2aab05463004eca"
@@ -42,7 +42,7 @@
   "hydroworks_3yr": {
     "url": "https://hydroworks.com.sg/blog/hdb-renovation-waterproofing-rules/",
     "official": false,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 7102,
     "sha256": "fea5f3914a12af0b"
@@ -50,39 +50,39 @@
   "leongyik_wet_area": {
     "url": "https://www.leongyik.com.sg/blog/hdb-wet-area-floor-tiling-guidelines/",
     "official": false,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 26779,
-    "sha256": "37ec48192794c4d3"
+    "sha256": "6a0f886279d461bd"
   },
   "homeexpo_overlay": {
     "url": "https://homeexpo.asia/vinyl-flooring/hdb-flooring-overlay-regulations-your-complete-guide-2026/",
     "official": false,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 21267,
-    "sha256": "d3186f1d796c1098"
+    "sha256": "50ac35d51b700a18"
   },
   "shiokliving_tiles": {
     "url": "https://www.shiokliving.com/home-improvement/renovation-materials/hdb-approved-tiles/",
     "official": false,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
-    "chars": 21681,
-    "sha256": "8a6d107148066484"
+    "chars": 21634,
+    "sha256": "290ec881b7d76706"
   },
   "renotalk_shelter": {
     "url": "https://www.renotalk.com/article/guide-to-the-standard-hdb-household-shelter",
     "official": false,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 4429,
-    "sha256": "3159333ff0c7b2a3"
+    "sha256": "844b70e5918a3e66"
   },
   "aura_hacking": {
     "url": "https://auradesignandco.com/hdb-hacking-rules-what-you-can-and-cannot-hack/",
     "official": false,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 13350,
     "sha256": "9a1d97865fa370c0"
@@ -90,7 +90,7 @@
   "elumi_permit": {
     "url": "https://www.elumihome.com/blog/hdb-renovation-permit-guide",
     "official": false,
-    "date_checked": "2026-10-26",
+    "date_checked": "2026-10-27",
     "status": 200,
     "chars": 7427,
     "sha256": "15fbfbea453acadf"

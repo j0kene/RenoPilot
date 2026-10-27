@@ -13,11 +13,13 @@ import io
 import shutil
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from langchain_core.messages import HumanMessage  # noqa: E402
 from langgraph.types import Command  # noqa: E402
 
 from renopilot import config, trace  # noqa: E402
@@ -228,7 +230,22 @@ with st.sidebar:
                 (up / f.name).write_bytes(f.getbuffer())
                 paths.append(str(up / f.name))
 
-    st.header("2. Budget (SGD)")
+    st.header("2. Your flat & what you'd like")
+    FLATS = ["not sure", "2-room", "3-room", "4-room", "5-room", "executive", "other"]
+    flat_type = st.selectbox("Flat type", FLATS, index=0, disabled=st.session_state.started)
+    done = st.date_input("Block completion (key collection) date", value=None, format="YYYY-MM-DD",
+                         min_value=date(1970, 1, 1), max_value=date(date.today().year + 6, 12, 31),
+                         disabled=st.session_state.started,
+                         help="From your key collection letter. HDB does not allow bathroom/toilet floor and wall "
+                              "finishes to be replaced for 3 years from the block's completion date. Leave empty if "
+                              "unsure: RenoPilot then shows both the under-3-year and 3-year-plus routes.")
+    brief = st.text_area("What would you like? (optional)", height=110, disabled=st.session_state.started,
+                         placeholder="e.g. 4-room, keys in June 2024. Warm Japandi living room, sofa under $1,500. "
+                                     "We'd also like to redo the bathroom floor tiles.",
+                         help="In your own words. Budgets, the flat type or a completion date typed here fill in "
+                              "anything the fields above leave empty (the fields always win).")
+
+    st.header("3. Budget (SGD)")
     total = st.number_input("Total furniture budget", min_value=0, value=6000, step=500,
                             disabled=st.session_state.started)
     caps = {}
@@ -238,7 +255,7 @@ with st.sidebar:
             caps[t] = float(st.number_input(f"Max for one {t.replace('_', ' ')}", min_value=0, value=1500 if t == "sofa" else 400,
                                             step=50, key=f"cap_{t}", disabled=st.session_state.started))
 
-    st.header("3. Agent")
+    st.header("4. Agent")
     not_live = live_ready()
     mode = st.radio("Mode", [DEMO, LIVE], horizontal=True, disabled=st.session_state.started,
                     index=[DEMO, LIVE].index(st.session_state.mode),
@@ -272,7 +289,8 @@ diagram.image(flow_svg(st.session_state.flow))
 if mode == DEMO:
     st.info("**Demo mode.** The graph, the agents' tools, pricing, the compliance gate and tracing are the real code, "
             "over the real IKEA SG and Castlery snapshot; only the models are played by code. Try rejecting an item "
-            "with a reason, or set a tight coffee-table cap (e.g. S$50) to get a question.")
+            "with a reason, or set a tight coffee-table cap (e.g. S$50) to get a question. Mention the bathroom in "
+            "*What would you like?* and change the completion date to see the HDB 3-year rule respond.")
 
 if paths and not st.session_state.started:
     st.image(paths, width=220)
@@ -281,8 +299,10 @@ if go:
     if (planner, mode) != (st.session_state.planner, st.session_state.mode):
         reset(planner, mode)
     st.session_state.started = True
-    run({"board_images": paths, "project": ProjectProfile(total_budget=total or None, budget_by_category=caps),
-         "messages": []})
+    form = ProjectProfile(total_budget=total or None, budget_by_category=caps, completion_date=done,
+                          flat_type=None if flat_type == "not sure" else flat_type)
+    run({"board_images": paths, "project": form,
+         "messages": [HumanMessage(brief.strip())] if brief.strip() else []})
     st.rerun()
 
 if not st.session_state.started:
@@ -291,6 +311,24 @@ if not st.session_state.started:
 
 state = st.session_state.graph.get_state(st.session_state.cfg).values
 gate = pending_interrupt()
+
+project = state.get("project")
+if project:
+    with st.container(border=True):
+        st.subheader("Your flat")
+        bits = [project.flat_type or "flat type not given"]
+        if project.completion_date:
+            unlock = project.completion_date.replace(year=project.completion_date.year + 3)                 if not (project.completion_date.month == 2 and project.completion_date.day == 29)                 else date(project.completion_date.year + 3, 3, 1)
+            bits.append(f"block completed {project.completion_date:%d %b %Y}")
+            bits.append(f"bathroom finishes can be replaced from {unlock:%d %b %Y}" if unlock > date.today()
+                        else "past the 3-year bathroom restriction")
+        else:
+            bits.append("completion date not given: both bathroom routes (under / over 3 years) are shown")
+        if project.total_budget:
+            bits.append(f"furniture budget {fmt_sgd(project.total_budget)}")
+        st.markdown(md(" · ".join(bits)))
+        if project.notes:
+            st.caption(md(f"You asked: {project.notes}"))
 
 profile = state.get("style_profile")
 if profile:

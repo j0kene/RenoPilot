@@ -12,11 +12,15 @@ looks like the LLM master's), and it turns the owner's rejection reason into a s
 refinement as the LLM master would. Each shopper searches with the item's description, prices
 its best hit, and picks hits that share the board's words. The comparables judge says yes to every
 pair it is offered; the Pricing agent's size rule still rejects the ones that do not fit.
+The owner's typed brief is read by a small regex parser (flat type, completion month, budgets)
+instead of the intake model, and a brief that mentions the bathroom adds bathroom finishes to the
+board's items, so the HDB 3-year rule can be seen reacting to the completion date.
 """
 from __future__ import annotations
 
 import csv
 import re
+from datetime import date
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, ToolMessage
@@ -25,11 +29,13 @@ from langchain_core.runnables import RunnableLambda
 
 from renopilot import config
 from renopilot.catalog.search import CatalogIndex
+from renopilot.nodes.intake import make_intake
 from renopilot.nodes.planner import fixed_policy, make_planner
 from renopilot.nodes.style import make_shortlist
 from renopilot.pricing.fx import FxProvider
 from renopilot.pricing.node import make_pricing
-from renopilot.schemas import ItemSpec, Product, StyleProfile
+from renopilot.schemas import ItemSpec, ProjectProfile, Product, StyleProfile
+from renopilot.vocab import LOOSE_FURNITURE
 
 PROFILE = StyleProfile(
     style_tags=["japandi", "minimalist"], palette=["light_wood", "off_white_cream", "beige"],
@@ -145,10 +151,42 @@ class DemoJudge:
         return RunnableLambda(run)
 
 
+# --------------------------------------------------------------------------- the brief, read by code
+MONTHS = {m: i for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct",
+                                      "nov", "dec"), 1)}
+
+
+def parse_brief(text: str) -> ProjectProfile:
+    """Plays the intake model: flat type, block completion month, total and per-item budgets."""
+    t = text.lower().replace(",", "")
+    flat = re.search(r"\b([2-5])[- ]?room\b", t)
+    flat_type = f"{flat.group(1)}-room" if flat else ("executive" if "executive" in t else None)
+    done = None
+    if m := re.search(r"\b(20\d\d)-(\d{1,2})(?:-(\d{1,2}))?\b", t):
+        done = date(int(m.group(1)), int(m.group(2)), int(m.group(3) or 1))
+    elif m := re.search(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(20\d\d)\b", t):
+        done = date(int(m.group(2)), MONTHS[m.group(1)], 1)
+    names = "|".join(sorted((i.replace("_", " ") for i in LOOSE_FURNITURE), key=len, reverse=True))
+    caps = {}
+    for word, amount in re.findall(rf"\b({names})s?\b\D{{0,12}}?(?:under|below|max|up to|within)\s*s?\$?\s*(\d+)", t):
+        caps[word.replace(" ", "_")] = float(amount)
+    total = re.search(r"(?:total|overall|whole)?\s*budget\D{0,15}?s?\$\s*(\d+)", t)
+    return ProjectProfile(flat_type=flat_type, completion_date=done, budget_by_category=caps,
+                          total_budget=float(total.group(1)) if total else None)
+
+
 # --------------------------------------------------------------------------- nodes
 def style_extract(state: dict) -> dict:
-    return {"style_profile": PROFILE,
-            "trace": [{"node": "style_extract", "action": "profile", "why": "demo: a fixed Japandi reading of the board"}]}
+    project = state.get("project")
+    brief = (project.notes if project else "").lower()
+    profile = PROFILE
+    if any(w in brief for w in ("bathroom", "toilet")):        # the live VLM is told to add items the brief asks for
+        profile = PROFILE.model_copy(update={"items": PROFILE.items + [ItemSpec(
+            item_type="bathroom_finishes", description="new bathroom floor and wall tiles, as in the owner's brief",
+            priority="must")]})
+    return {"style_profile": profile,
+            "trace": [{"node": "style_extract", "action": "profile", "why": "demo: a fixed Japandi reading of the board"
+                       + (" + the bathroom finishes the brief asked for" if profile is not PROFILE else "")}]}
 
 
 def planner(state: dict):
@@ -157,7 +195,7 @@ def planner(state: dict):
 
 def demo_nodes() -> dict:
     products = catalog()
-    return {"style_extract": style_extract, "planner": planner,
+    return {"intake": make_intake(parse=parse_brief), "style_extract": style_extract, "planner": planner,
             "shortlist": make_shortlist(index=demo_index(), signals=("bm25",), shopper_model=DemoShopper()),
             "pricing": make_pricing(products={p.id: p for p in products}, pool=products, index=None,
                                     judge_model=DemoJudge(), fx=FxProvider(mode="snapshot"))}

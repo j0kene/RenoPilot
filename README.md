@@ -36,8 +36,14 @@ python -m uv run --group ui streamlit run app/streamlit_app.py     # demo UI: "D
 python -m uv run python evals/demo_trace.py                          # the same offline demo, scripted, to Langfuse
 python -m uv run python -m renopilot.run_cli --board data/boards/japandi_01 --budget sofa=1500,coffee_table=400
 python -m uv run python -m renopilot.run_cli --board a.jpg b.jpg c.jpg --total 6000 --planner fixed
+python -m uv run python -m renopilot.run_cli --board data/boards/japandi_01 --total 6000 --completed 2024-06-01 --flat-type 4-room --brief "we also want to redo the bathroom floor"
 python -m uv run python -m renopilot.graph      # print the graph as mermaid
 ```
+
+The owner's details go in two ways, merged at intake: form fields / CLI flags (flat type, block completion date,
+budgets) always win, and a free-text brief ("What would you like?" / `--brief`) fills anything they leave empty
+(read by the intake model; by a small parser in demo mode). The completion date drives HDB's 3-year bathroom rule;
+items the brief asks for (e.g. bathroom tiles) are added to the board's items.
 
 Prices: `RENOPILOT_FX=snapshot` uses the frozen FX file (reproducible, offline); the default fetches daily
 rates from Frankfurter. Overseas rows are currently synthetic sample data (see `data/SOURCES.md`).

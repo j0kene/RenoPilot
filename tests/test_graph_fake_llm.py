@@ -35,10 +35,23 @@ def test_happy_path_parks_at_approval_then_responds(tmp_path):
     # every suggestion reached the gate with a guard verdict
     assert all(c["verdict"] for c in gate["suggestions"])
     tiles = next(c for c in gate["suggestions"] if c["item_type"] == "floor_tiles")
-    assert tiles["verdict"] == "escalate"                  # finish: the stub refuses to guess
-    final = g.invoke(Command(resume={"approve": "all"}), cfg)
+    # finish: every HDB route is listed, the easiest legal one (overlay) is in effect
+    assert tiles["rule_id"] == "HDB-FLOOR-OVERLAY" and tiles["verdict"] == "allow"
+    assert [r["decision"] for r in tiles["routes"]] == ["allow", "allow_with_permit", "block"]
+    # the owner will hack out the old tiles instead; a blocked route (raising the floor) is never taken
+    final = g.invoke(Command(resume={"approve": "all", "routes": {"floor_tiles": "HDB-FLOOR-REPLACE"}}), cfg)
     assert final["approved"] is True
     assert "Buying one item per type" in final["messages"][-1].content
+    tiles = next(s for s in final["suggestions"] if s.item_type == "floor_tiles")
+    assert tiles.verdict.rule_id == "HDB-FLOOR-REPLACE" and tiles.verdict.decision == "allow_with_permit"
+    assert len(tiles.verdict.options) == 3
+
+
+def test_a_blocked_route_is_never_taken(tmp_path):
+    g, cfg, _ = _start(tmp_path, budget_by_category={"sofa": 2000, "coffee_table": 400})
+    final = g.invoke(Command(resume={"approve": "all", "routes": {"floor_tiles": "HDB-FLOOR-RAISE"}}), cfg)
+    tiles = next(s for s in final["suggestions"] if s.item_type == "floor_tiles")
+    assert tiles.verdict.rule_id == "HDB-FLOOR-OVERLAY"
 
 
 def test_reject_triggers_a_new_search_that_excludes_the_rejected_item(tmp_path):

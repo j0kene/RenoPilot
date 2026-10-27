@@ -18,7 +18,7 @@ from langgraph.types import RetryPolicy
 
 from renopilot.llm import is_transient
 from renopilot.nodes.approval import approval, ask_user
-from renopilot.nodes.guard_stub import compliance_guard
+from renopilot.nodes.guard import compliance_guard
 from renopilot.nodes.intake import intake
 from renopilot.nodes.planner import make_planner
 from renopilot.nodes.respond import respond

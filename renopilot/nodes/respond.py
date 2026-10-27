@@ -5,6 +5,7 @@ from __future__ import annotations
 from langchain_core.messages import AIMessage
 
 from renopilot import trace
+from renopilot.compliance import PLAIN
 from renopilot.pricing.landed_cost import basket_total
 from renopilot.tools.budget import fmt_sgd
 
@@ -46,8 +47,10 @@ def render(state: dict) -> str:
         lines.append(f"\n{t.replace('_', ' ').title()}")
         for s in items:
             flag = "" if not s.verdict or s.verdict.decision == "allow" else f"  [{s.verdict.decision}: {s.verdict.reason}]"
-            if not s.product_id:
-                lines.append(f"  - {s.title}{flag}")
+            if not s.product_id:                       # a finish/built-in: the HDB route and its rule
+                v = s.verdict
+                how = f"\n    HDB: {PLAIN[v.decision]}. {v.route} ({v.rule_id}, {v.citation})" if v and v.rule_id else flag
+                lines.append(f"  - {s.title}{how}" + "".join(f"\n      - {c}" for c in v.conditions if v))
                 continue
             q = s.price_quote
             price = f"{fmt_sgd(q.total_sgd)} landed{' (est.)' if q.estimated else ''}" if q else fmt_sgd(s.price_sgd)

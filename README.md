@@ -71,7 +71,7 @@ Results append to `evals/results/*.jsonl`, so an interrupted run resumes where i
 ```
 renopilot/   config, llm (model per role), schemas + vocab + state (shared contracts), trace
   catalog/   store (SQLite), embed (open_clip/SigLIP), search (hybrid + RRF), taxonomy (title -> type)
-  nodes/     intake, planner (master agent), style + shopper (ReAct subagent), guard_stub, approval (+ ask_user), respond
+  nodes/     intake, planner (master agent), style + shopper (ReAct subagent), guard (HDB rules), approval (+ ask_user), respond
   demo.py    the offline demo world: models played by code, a made-up sample catalog
   tools/     budget (deterministic money maths)
   pricing/   rules, fx, landed_cost (deterministic), comparables (model-judged), node

@@ -1,5 +1,5 @@
 """Temporary demo UI: mood board -> priced shortlist, with the master agent, the Style agent's
-shopper subagents, Pricing, the Compliance stub and the two human gates (question + approval).
+shopper subagents, Pricing, the HDB Compliance guard and the two human gates (question + approval).
 
     python -m uv run --group ui streamlit run app/streamlit_app.py
 
@@ -22,6 +22,7 @@ from langgraph.types import Command  # noqa: E402
 
 from renopilot import config, trace  # noqa: E402
 from renopilot.catalog.embed import slug  # noqa: E402
+from renopilot.compliance import PLAIN  # noqa: E402
 from renopilot.demo import demo_nodes  # noqa: E402
 from renopilot.graph import build_graph  # noqa: E402
 from renopilot.schemas import ProjectProfile  # noqa: E402
@@ -32,7 +33,7 @@ st.set_page_config(page_title="RenoPilot demo", page_icon="🛋️", layout="wid
 IMG_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 NODE_LABEL = {"intake": "Checking the board", "planner": "Planning the next step",
               "style_extract": "Reading the mood board", "shortlist": "Searching the catalog",
-              "compliance_guard": "Compliance check (stub)", "ask_user": "Question for you",
+              "compliance_guard": "Checking HDB rules", "ask_user": "Question for you",
               "approval": "Waiting for your approval", "respond": "Writing the reply"}
 DEMO, LIVE = "Demo (offline)", "Live"
 
@@ -40,7 +41,7 @@ DEMO, LIVE = "Demo (offline)", "Live"
 BOX = {"ask_user": (10, 16, "Ask you", "human gate"), "style_extract": (160, 16, "Style extract", "Style agent"),
        "shortlist": (310, 16, "Shortlist", "shopper subagents"), "pricing": (460, 16, "Pricing", "landed SGD"),
        "intake": (10, 140, "Intake", "checks the board"), "planner": (190, 140, "Planner", "master agent"),
-       "compliance_guard": (420, 140, "Compliance", "guard (stub)"), "approval": (580, 140, "Approval", "human gate"),
+       "compliance_guard": (420, 140, "Compliance", "HDB rules"), "approval": (580, 140, "Approval", "human gate"),
        "respond": (740, 140, "Respond", "final reply")}
 W, H = 126, 50
 COLOR = {"running": "#3b82f6", "done": "#16a34a", "waiting": "#d97706", "error": "#dc2626"}
@@ -116,6 +117,26 @@ def picture(image_path: str | None) -> None:
     """The product photo (cached locally by the data scripts), or a neutral tile without one."""
     path = config.ROOT / image_path if image_path else None
     st.image(str(path) if path and path.exists() else no_photo(), width="stretch")
+
+
+def hdb_routes(c: dict) -> None:
+    """A finish's HDB routes (the guard's verdict per way of doing it): the owner picks one;
+    blocked routes are shown, never offered."""
+    by_id = {r["rule_id"]: r for r in c["routes"]}
+    ok = [r["rule_id"] for r in c["routes"] if r["decision"] != "block"]
+    if ok:
+        st.radio("How will this be done?", ok, key=f"route_{c['item_type']}",
+                 index=ok.index(c["rule_id"]) if c["rule_id"] in ok else 0,
+                 format_func=lambda i: f"{by_id[i]['route']} ({PLAIN[by_id[i]['decision']]})",
+                 captions=[md(by_id[i]["reason"]) for i in ok])
+    for r in c["routes"]:
+        if r["decision"] == "block":
+            st.caption(md(f":red[Not allowed] · {r['route']}: {r['reason']}"))
+    with st.expander("HDB conditions and sources"):
+        for r in c["routes"]:
+            st.markdown(md(f"**{r['route']}** · {PLAIN[r['decision']]} · ") + f"[{r['rule_id']}]({r['citation']})")
+            for cond in r["conditions"]:
+                st.caption(md(f"- {cond}"))
 
 
 # --------------------------------------------------------------------------- session
@@ -229,10 +250,10 @@ with st.sidebar:
     if mode == LIVE:
         st.caption(f"{u['model_calls']} model calls · {u['input_tokens']:,} in / {u['output_tokens']:,} out tokens · "
                    f"~${u['cost_usd']:.2f} API-equivalent")
-        st.caption("Backend: " + config.BACKEND + " · Catalog: IKEA SG + Castlery snapshot · Pricing: landed SGD (overseas rows are sample data) · Compliance: stub")
+        st.caption("Backend: " + config.BACKEND + " · Catalog: IKEA SG + Castlery snapshot · Pricing: landed SGD (overseas rows are sample data) · Compliance: HDB rule cards")
     else:
         st.caption("Models: played by code · Catalog: IKEA SG + Castlery snapshot (overseas rows are sample data) · "
-                   "Search: BM25 only · Pricing: real rules, frozen FX · Compliance: stub")
+                   "Search: BM25 only · Pricing: real rules, frozen FX · Compliance: HDB rule cards")
 
 # --------------------------------------------------------------------------- main
 st.title("RenoPilot")
@@ -329,7 +350,9 @@ elif gate and gate["type"] == "approval":
                                 badge = " · :orange[SAMPLE DATA]" if a["sample"] else ""
                                 word = ":green[cheaper]" if a["cheaper"] else "similar"
                                 st.caption(md(f"{word} at {a['source']}: {a['title'][:45]}, {a['landed']} landed") + badge)
-                        if c["verdict"] and c["verdict"] != "allow":
+                        if c.get("routes"):
+                            hdb_routes(c)
+                        elif c["verdict"] and c["verdict"] != "allow":
                             st.warning(md(f"{c['verdict']}: {c['verdict_reason']}"))
                         if c["product_id"]:
                             st.checkbox("Reject", key=f"rej_{c['product_id']}")
@@ -341,7 +364,9 @@ elif gate and gate["type"] == "approval":
     if approve or reject:
         rejects = [{"product_id": c["product_id"], "reason": st.session_state.get(f"why_{c['product_id']}", "")}
                    for c in gate["suggestions"] if c["product_id"] and st.session_state.get(f"rej_{c['product_id']}")]
-        run(Command(resume={"approve": "all"} if approve or not rejects else {"reject": rejects}))
+        routes = {c["item_type"]: st.session_state[f"route_{c['item_type']}"] for c in gate["suggestions"]
+                  if f"route_{c['item_type']}" in st.session_state}
+        run(Command(resume=({"approve": "all"} if approve or not rejects else {"reject": rejects}) | {"routes": routes}))
         st.rerun()
 
 else:
@@ -349,9 +374,15 @@ else:
     if msgs:
         st.subheader("Your shortlist")
         st.success("Shortlist approved." if state.get("approved") else "Finished.")
-        for f in state.get("suggestions") or []:
-            if f.verdict and f.verdict.decision != "allow" and f.status != "rejected":
-                st.warning(md(f"{f.item_type.replace('_', ' ').title()}: {f.verdict.decision}: {f.verdict.reason}"))
+        works = [x for x in state.get("suggestions") or [] if not x.product_id and x.status == "approved" and x.verdict]
+        if works:
+            st.markdown("#### Renovation works (HDB)")
+        for x in works:
+            v = x.verdict
+            link = f" · [{v.rule_id}]({v.citation})" if v.rule_id else ""
+            st.markdown(md(f"**{x.title}** · {v.route or v.reason} · {PLAIN[v.decision]}") + link)
+            for cond in v.conditions:
+                st.caption(md(f"- {cond}"))
         by_type: dict[str, list] = {}
         for x in state.get("suggestions") or []:
             if x.product_id and x.status == "approved":

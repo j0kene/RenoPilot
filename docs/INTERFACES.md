@@ -31,7 +31,7 @@ so the gates stay graph edges: the master can hand over to Compliance (`finalize
 |---|---|---|---|
 | Style agent | `style_extract`, `shortlist` | one vision call for the profile; then a **shopper** ReAct agent per item type (`nodes/shopper.py`, `PICKER=react`) or one rerank call (`PICKER=rerank`) | `search_catalog`, `product_details`, `landed_price` (+ `Picks` to submit) |
 | Pricing agent | `pricing` | deterministic, plus a model judge for comparables | `landed_cost`, `find_candidates`, `basket_total` |
-| Compliance | `compliance_guard` | deterministic gate, every suggestion | `hdb_rule_check` |
+| Compliance | `compliance_guard` | deterministic gate over the HDB rule cards, every suggestion | `hdb_rule_check` |
 
 The shopper's hard rules (item type, budget cap, retailers, excluded ids) are bound into its tools when it is
 built, so its tool arguments can only ever narrow a search. Its picks must be ids its searches returned.
@@ -53,24 +53,32 @@ under an output schema); with `RENOPILOT_BACKEND=openai` it is native. Either wa
 | `comparables: list[PricedAlternative]` | **Pricing agent** | up to 2 comparable offers at other retailers, each with its own `PriceQuote` and a `why_comparable` |
 | `status` | approval gate | proposed / approved / rejected |
 
-`ProjectProfile` holds `flat_type`, `completion_date` (needed for the 3-year rules) and the budgets.
+`ProjectProfile` holds `flat_type`, `completion_date` (optional: it narrows the bathroom routes) and the budgets.
 Only the owner (through an interrupt's resume value) can change the budget; no model output can.
 
-## Compliance guard: what to replace
+## Compliance guard (implemented: `renopilot/nodes/guard.py`)
 
-`renopilot/nodes/guard_stub.py` already has the final node signature. Replace `verdict_for(s, project)`:
+The rules are 22 cards in `data/compliance/hdb_rules.jsonl`, each quoting the HDB page it rests on
+(`data/compliance/sources.json`, fetched by `data/scripts/fetch_hdb_sources.py`; a test checks every quote
+against the saved page). `compliance.routes(item_type, room, completion_date)` returns the cards that apply.
 
-```python
-def verdict_for(s: Suggestion, project: ProjectProfile | None) -> Verdict:
-    # loose furniture -> allow (keep this)
-    # finish / built_in -> look up the rule table by s.item_type; date rules in code
-    #   (e.g. project.completion_date + 3 years for bathroom finishes); cite the passage
-    # not covered by the table -> Verdict(decision="escalate", ...)  never guess
-```
+Most finishes can be done more than one way, and HDB treats the ways differently: overlaying floor tiles needs
+no permit, hacking them out needs one, raising the floor is not allowed, and bathroom tiles cannot be replaced in
+the block's first 3 years. So each card is a **route**, and `Verdict.options` holds the guard's verdict for every
+route, easiest first. The verdict in effect is the easiest legal route; at the approval gate the owner can switch to
+another listed route (resume `{"routes": {item_type: rule_id}}`), never to a blocked one. Facts narrow the list:
+the board's room (a bathroom card replaces the general card for the same method) and `completion_date`, which
+drops the route for the other block age. Without a date both are listed, and picking one states the fact.
 
-A `block` verdict marks the suggestion rejected (by "guard") and records the reason, so the planner can
-re-plan with a legal alternative. The red-team / injection evals belong to this workstream: follow
-`evals/run_graph.py` for the pattern (cases JSONL + a trajectory grader + `run_eval`).
+| case | verdict |
+|---|---|
+| loose furniture | `allow`, no options |
+| finish / built-in with cards | easiest route in effect, all routes in `options`, each with `rule_id`, `route`, `conditions`, `citation` |
+| every route blocked | `block`: the suggestion is rejected (by "guard") with the reason and the card's `alternative` |
+| no card covers it | `escalate` with `HDB-NOT-LISTED` (ask HDB); the guard never guesses |
+
+The red-team / injection evals belong to this workstream: follow `evals/run_graph.py` for the pattern
+(cases JSONL + a trajectory grader + `run_eval`).
 
 ## Pricing agent (implemented: `renopilot/pricing/`)
 

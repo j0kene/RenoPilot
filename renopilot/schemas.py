@@ -112,12 +112,18 @@ class PricedAlternative(BaseModel):
 
 # --------------------------------------------------------------------------- downstream
 class Verdict(BaseModel):
-    """Written by the Compliance guard. The guard's verdict cannot be overridden by any agent."""
+    """Written by the Compliance guard. The guard's verdict cannot be overridden by any agent.
+    A finish or built-in can usually be done more than one way (overlay or replace, ...): `options`
+    holds the guard's verdict for each route, easiest first, and the verdict itself is the route in
+    effect. Only the owner switches routes, at the approval gate, and only to one of these."""
     decision: Literal["allow", "allow_with_permit", "block", "escalate"]
     reason: str = ""
     rule_id: Optional[str] = None
+    route: str = ""                                    # how the work is done, e.g. "Overlay: ..."
+    conditions: list[str] = Field(default_factory=list)
     alternative: Optional[str] = None
     citation: Optional[str] = None
+    options: list[Verdict] = Field(default_factory=list)
 
 
 class Suggestion(BaseModel):

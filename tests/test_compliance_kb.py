@@ -1,10 +1,11 @@
 """HDB rule cards: every card is cited and grounded, every finish/built-in is covered."""
 import re
+from datetime import date
 
 import pytest
 
 from renopilot import config
-from renopilot.compliance import cards, rules_for
+from renopilot.compliance import cards, routes, rules_for
 from renopilot.vocab import LOOSE_FURNITURE, WORK_TYPE_OF
 
 RAW = config.DATA / "raw" / "hdb"
@@ -44,3 +45,18 @@ def test_rooms():
     assert "HDB-BATH-3YR" not in [c["id"] for c in rules_for("floor_tiles")]
     assert "HDB-BATH-3YR" in [c["id"] for c in rules_for("bathroom_finishes")]        # room implied
     assert "HDB-KITCHEN-CABINET" in [c["id"] for c in rules_for("kitchen_cabinets")]
+
+
+def test_routes_easiest_first():
+    assert [c["id"] for c in routes("floor_tiles", room="living")] == \
+        ["HDB-FLOOR-OVERLAY", "HDB-FLOOR-REPLACE", "HDB-FLOOR-RAISE"]
+    assert [c["decision"] for c in routes("partition_wall_change")] == ["allow", "allow_with_permit", "block"]
+
+
+def test_bathroom_routes_follow_the_block_age():
+    ids = lambda **kw: [c["id"] for c in routes("floor_tiles", room="bathroom", **kw)]   # noqa: E731
+    assert ids()[0] == "HDB-BATH-3YR-OVERLAY" and "HDB-FLOOR-OVERLAY" not in ids()   # room card replaces the general one
+    assert {"HDB-BATH-3YR", "HDB-BATH-FLOOR-REPLACE"} <= set(ids())                  # unknown age: both listed
+    new, old = ids(completion_date=date.today()), ids(completion_date=date(2015, 1, 1))
+    assert "HDB-BATH-3YR" in new and "HDB-BATH-FLOOR-REPLACE" not in new
+    assert "HDB-BATH-FLOOR-REPLACE" in old and "HDB-BATH-3YR" not in old

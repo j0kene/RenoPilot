@@ -6,7 +6,9 @@ runs again from its first line. Both nodes only READ before the interrupt.
 Resume values (what the UI / CLI sends back with Command(resume=...)):
   ask_user  {"answer": str, "budget_by_category": {item_type: SGD}?, "total_budget": SGD?,
              "board_images": [paths]?}
-  approval  {"approve": "all"}  or  {"reject": [{"product_id": str, "reason": str}, ...]}
+  approval  {"approve": "all"}  or  {"reject": [{"product_id": str, "reason": str}, ...]},
+            either with "routes": {item_type: rule_id}: how the owner will do a finish, picked from
+            the guard's own routes for it (Verdict.options); a route the guard blocks is never taken
 Only these resume values can change the budget: no model output can.
 """
 from __future__ import annotations
@@ -56,6 +58,8 @@ def _card(s) -> dict:
             "price": fmt_sgd(s.price_sgd), "reason": s.reason, "url": s.url, "image_path": s.image_path,
             "verdict": s.verdict.decision if s.verdict else None,
             "verdict_reason": s.verdict.reason if s.verdict else None,
+            "rule_id": s.verdict.rule_id if s.verdict else None,
+            "routes": [o.model_dump(exclude={"options"}) for o in s.verdict.options] if s.verdict else [],
             # pricing (None until the pricing node has run)
             "landed": fmt_sgd(q.total_sgd) if q else None,
             "landed_lines": [f"{ln.label}: {fmt_sgd(ln.amount_sgd)}" + (f" ({ln.note})" if ln.note else "")
@@ -67,17 +71,27 @@ def _card(s) -> dict:
                             for a in s.comparables]}
 
 
+def _take_route(s, rule_id: str | None):
+    """Put the owner's route in effect, if it is one of the guard's routes for s and not blocked."""
+    v = s.verdict
+    pick = next((o for o in (v.options if v else []) if o.rule_id == rule_id and o.decision != "block"), None)
+    return s.model_copy(update={"verdict": pick.model_copy(update={"options": v.options})}) if pick else s
+
+
 def approval(state: dict) -> Command:
     live = [s for s in state.get("suggestions") or [] if s.status != "rejected"]
     decision = interrupt({"type": "approval", "suggestions": [_card(s) for s in live],
                           "escalations": state.get("escalations") or []})
     # ---- after resume
     decision = decision if isinstance(decision, dict) else {"approve": "all"}
+    chosen = decision.get("routes") or {}
+    suggestions = [_take_route(s, chosen.get(s.item_type)) if s.status != "rejected" else s
+                   for s in state.get("suggestions") or []]
     rejects = {r["product_id"]: r.get("reason", "") for r in decision.get("reject", []) if r.get("product_id")}
     by_id = {s.product_id: s for s in live if s.product_id}
     unknown = [pid for pid in rejects if pid not in by_id]
     rejected_rows, out = [], []
-    for s in state.get("suggestions") or []:
+    for s in suggestions:
         if s.product_id in rejects and s.product_id in by_id:
             out.append(s.model_copy(update={"status": "rejected"}))
             rejected_rows.append({"product_id": s.product_id, "item_type": s.item_type,
@@ -86,7 +100,7 @@ def approval(state: dict) -> Command:
             out.append(s.model_copy(update={"status": "approved"}) if not rejects else s)
         else:
             out.append(s)
-    trace.log("approval", "decision", n_rejected=len(rejected_rows), unknown_ids=unknown)
+    trace.log("approval", "decision", n_rejected=len(rejected_rows), unknown_ids=unknown, routes=chosen)
     if not rejected_rows:
         out = [s.model_copy(update={"status": "approved"}) if s.status != "rejected" else s for s in out]
         return Command(goto="respond", update={"suggestions": out, "approved": True,

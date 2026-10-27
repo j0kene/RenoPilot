@@ -1,5 +1,5 @@
 """The offline demo world: no model and no catalog index needed. The graph, the gates, the shopper
-agents' tools, landed-cost pricing, the compliance stub and the tracing are the real code, over the
+agents' tools, landed-cost pricing, the HDB compliance guard and the tracing are the real code, over the
 frozen SG catalog snapshot (real IKEA SG and Castlery products, prices and photos, data/sg_catalog.csv;
 the overseas rows are the synthetic samples of data/taobao_manual.csv). Only the models are played
 by code, and search is BM25 only (no embeddings).

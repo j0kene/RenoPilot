@@ -13,7 +13,8 @@ same boards, same model output, only the retrieval differs.
   no_bm25       text_img + board_img                      (ablation)
 
 A target counts as missed, tagged style_misread, if the VLM did not list its item type.
-A case PASSES if recall@10 >= 0.6 on that board (the proposal's target, per board).
+A case PASSES if recall@10 >= 0.6 on that board. This is an ABO retrieval diagnostic;
+the proposal's final SG shortlist Precision@5 is measured separately by run_shortlist.py.
 Results are appended to evals/results/ so an interrupted run resumes.
 """
 from __future__ import annotations

@@ -13,6 +13,7 @@ Added:
 from __future__ import annotations
 
 import json
+import hashlib
 import random
 import statistics
 from dataclasses import asdict, dataclass, field
@@ -52,6 +53,7 @@ class CaseOutcome:
     run_index: int
     result: AgentResult
     tags: list[str] = field(default_factory=list)
+    fingerprint: str = ""
 
 
 def bootstrap_ci(values: list[float], n_boot: int = 2000, seed: int = 621) -> tuple[float, float]:
@@ -95,7 +97,8 @@ class Report:
     def pass_hat_k(self) -> float:
         """Share of cases that passed in every run: what production runs on."""
         cases = self._by_case()
-        return sum(all(o.passed for o in os_) for os_ in cases.values()) / len(cases) if cases else 0.0
+        return sum(len(os_) == self.n_runs and {o.run_index for o in os_} == set(range(self.n_runs))
+                   and all(o.passed for o in os_) for os_ in cases.values()) / len(cases) if cases else 0.0
 
     @property
     def pass_at_k(self) -> float:
@@ -183,15 +186,35 @@ class Report:
         return "\n".join(lines)
 
 
+def evaluation_fingerprints(cases: list[Case], revision: str = "") -> dict[str, str]:
+    # Resume only matching code and inputs. Old successful runs must not grade new code.
+    root = Path(__file__).resolve().parents[1]
+    digest = hashlib.sha256(revision.encode())
+    for folder in ("renopilot", "evals"):
+        for source in sorted((root / folder).rglob("*.py")):
+            digest.update(str(source.relative_to(root)).encode() + source.read_bytes())
+    for pattern in ("data/*.csv", "data/pricing/*.json", "data/compliance/*.json*"):
+        for source in sorted(root.glob(pattern)):
+            digest.update(str(source.relative_to(root)).encode() + source.read_bytes())
+    return {c.id: hashlib.sha256((digest.hexdigest() + json.dumps(
+        [c.input, c.expected], sort_keys=True, default=str)).encode()).hexdigest() for c in cases}
+
+
 def run_eval(agent_fn: Callable[[Any], AgentResult], cases: list[Case], grader: Grader,
-             n_runs: int = 3, name: str = "agent", resume_file: str | Path | None = None) -> Report:
+             n_runs: int = 3, name: str = "agent", resume_file: str | Path | None = None,
+             revision: str = "") -> Report:
+    if n_runs < 1 or not cases:
+        raise ValueError("An evaluation needs cases and at least one run.")
+    fingerprints = evaluation_fingerprints(cases, revision)
     done: dict[tuple[str, int], CaseOutcome] = {}
     path = Path(resume_file) if resume_file else None
     if path and path.exists():
         for line in path.read_text(encoding="utf-8").splitlines():
             d = json.loads(line)
+            if d.get("fingerprint") != fingerprints.get(d["case_id"]):
+                continue
             done[(d["case_id"], d["run_index"])] = CaseOutcome(
-                d["case_id"], d["passed"], d["run_index"], AgentResult(**d["result"]), d["tags"])
+                d["case_id"], d["passed"], d["run_index"], AgentResult(**d["result"]), d["tags"], d["fingerprint"])
     outcomes: list[CaseOutcome] = []
     for run_index in range(n_runs):
         for case in cases:
@@ -204,12 +227,13 @@ def run_eval(agent_fn: Callable[[Any], AgentResult], cases: list[Case], grader: 
                 result = AgentResult(output="", error=f"{type(e).__name__}: {e}")
             passed = False if result.error else bool(grader(case, result))
             tags = list(case.tags) + (["crash"] if result.error else [])
-            o = CaseOutcome(case.id, passed, run_index, result, tags)
+            o = CaseOutcome(case.id, passed, run_index, result, tags, fingerprints[case.id])
             outcomes.append(o)
             if path:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 with path.open("a", encoding="utf-8") as f:
-                    f.write(json.dumps(asdict(o), default=str) + "\n")
+                    f.write(json.dumps(asdict(o), default=lambda v: v.model_dump(mode="json")
+                        if hasattr(v, "model_dump") else sorted(v) if isinstance(v, set) else str(v)) + "\n")
             print(f"  [{name}] run {run_index + 1}/{n_runs} {case.id}: {'PASS' if passed else 'FAIL'}"
                   f"{'  ' + result.error[:80] if result.error else ''}", flush=True)
     return Report(name=name, outcomes=outcomes, n_runs=n_runs)

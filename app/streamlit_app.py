@@ -26,7 +26,7 @@ from renopilot import config, trace  # noqa: E402
 from renopilot.basket import offers_for, selection, summary  # noqa: E402
 from renopilot.catalog.embed import slug  # noqa: E402
 from renopilot.compliance import PLAIN  # noqa: E402
-from renopilot.demo import demo_nodes  # noqa: E402
+from renopilot.demo import DEMO_BOARD, demo_nodes  # noqa: E402
 from renopilot.graph import build_graph  # noqa: E402
 from renopilot.nodes.guard import blocked  # noqa: E402
 from renopilot.nodes.respond import shopping_list_csv  # noqa: E402
@@ -170,7 +170,7 @@ def reset(planner: str, mode: str) -> None:
 
 
 if "graph" not in st.session_state:
-    reset("llm", LIVE if live_ready() is None else DEMO)
+    reset("llm", DEMO)
 st.session_state.setdefault("flow", {})                  # sessions started before the diagram existed
 
 
@@ -218,9 +218,22 @@ def pending_interrupt():
 
 # --------------------------------------------------------------------------- sidebar: inputs
 with st.sidebar:
+    st.header("Demo settings")
+    not_live = live_ready()
+    mode = st.radio("Mode", [DEMO, LIVE], horizontal=True, disabled=st.session_state.started,
+                    index=[DEMO, LIVE].index(st.session_state.mode),
+                    help="Offline: one explicitly scripted Japandi example. Live: read your board with the real models."
+                         + (f" Live is unavailable: {not_live}." if not_live else ""))
+    planner = st.session_state.planner
+    if mode == LIVE:
+        planner = st.radio("Planner", ["llm", "fixed"], horizontal=True, disabled=st.session_state.started)
+        if not_live:
+            st.warning(f"Live mode will fail: {not_live}.")
     st.header("1. Mood board")
     boards = sorted(p.name for p in config.BOARDS.iterdir() if p.is_dir()) if config.BOARDS.exists() else []
-    source = st.radio("Board source", ["Example board", "Upload images"], horizontal=True,
+    if mode == DEMO:
+        boards = [DEMO_BOARD.name]
+    source = st.radio("Board source", ["Example board"] if mode == DEMO else ["Example board", "Upload images"], horizontal=True,
                       disabled=st.session_state.started)
     paths: list[str] = []
     if source == "Example board" and boards:
@@ -261,22 +274,9 @@ with st.sidebar:
                                 disabled=st.session_state.started):
             caps[t] = float(st.number_input(f"Max for one {t.replace('_', ' ')}", min_value=0, value=1500 if t == "sofa" else 400,
                                             step=50, key=f"cap_{t}", disabled=st.session_state.started))
-
     if sum(caps.values()) > total:
         st.caption("Your category caps exceed the total. Each chosen item and the final delivered basket must still fit the total budget.")
 
-    st.header("4. Agent")
-    not_live = live_ready()
-    mode = st.radio("Mode", [DEMO, LIVE], horizontal=True, disabled=st.session_state.started,
-                    index=[DEMO, LIVE].index(st.session_state.mode),
-                    help="Demo: offline, models played by code over a made-up sample catalog. "
-                         "Live: the real models and catalog." + (f" Live is unavailable: {not_live}." if not_live else ""))
-    planner = st.session_state.planner
-    if mode == LIVE:
-        planner = st.radio("Planner", ["llm", "fixed"], horizontal=True, disabled=st.session_state.started,
-                           help="llm: the model picks the next step, code enforces the rules. fixed: the baseline pipeline.")
-        if not_live:
-            st.warning(f"Live mode will fail: {not_live}.")
     c1, c2 = st.columns(2)
     go = c1.button("Run", type="primary", disabled=st.session_state.started or not paths, width="stretch")
     if c2.button("Reset", width="stretch"):
@@ -297,8 +297,9 @@ st.caption("From mood board to a shortlist of real products, within budget. You 
 diagram = st.empty()
 diagram.image(flow_svg(st.session_state.flow))
 if mode == DEMO:
-    st.info("**Demo mode.** The graph, the agents' tools, pricing, the compliance gate and tracing are the real code, "
-            "over the real IKEA SG and Castlery snapshot; only the models are played by code. Try rejecting an item "
+    st.info("**Scripted Japandi example.** This mode does not interpret images: it uses one fixed style profile "
+            "and code-driven model replies. The graph, catalog tools, pricing and HDB checks run for real "
+            "over the IKEA SG and Castlery snapshot. Use Live to interpret other boards or uploads. Try rejecting an item "
             "with a reason, or set a tight coffee-table cap (e.g. S$50) to get a question. Mention the bathroom in "
             "*What would you like?* and change the completion date to see the HDB 3-year rule respond.")
 

@@ -21,6 +21,7 @@ from __future__ import annotations
 import csv
 import re
 from datetime import date
+from pathlib import Path
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, ToolMessage
@@ -48,6 +49,7 @@ PROFILE = StyleProfile(
     summary="Warm, pared-back Japandi living room: pale oak, linen and paper light.")
 
 TYPES = tuple(i.item_type for i in PROFILE.items)
+DEMO_BOARD = config.BOARDS / "japandi_01"
 _STOP = {"palette", "materials", "and", "the", "with", "room", "living", "warm", "pared", "back"}
 
 
@@ -177,6 +179,8 @@ def parse_brief(text: str) -> ProjectProfile:
 
 # --------------------------------------------------------------------------- nodes
 def style_extract(state: dict) -> dict:
+    if any(Path(p).resolve().parent != DEMO_BOARD.resolve() for p in state.get("board_images") or []):
+        raise ValueError("Offline mode replays only the scripted japandi_01 example. Use Live for other boards or uploads.")
     project = state.get("project")
     brief = (project.notes if project else "").lower()
     profile = PROFILE

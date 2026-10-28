@@ -44,7 +44,7 @@ PROFILE = StyleProfile(
            ItemSpec(item_type="coffee_table", description="round light oak coffee table", priority="must"),
            ItemSpec(item_type="floor_lamp", description="paper shade floor lamp", priority="nice"),
            ItemSpec(item_type="rug", description="natural jute flatwoven rug", priority="nice"),
-           ItemSpec(item_type="floor_tiles", description="matte grey terrazzo floor tiles", priority="nice")],
+           ItemSpec(item_type="floor_tiles", description="matte grey terrazzo floor tiles", priority="nice", room="living")],
     summary="Warm, pared-back Japandi living room: pale oak, linen and paper light.")
 
 TYPES = tuple(i.item_type for i in PROFILE.items)
@@ -182,8 +182,13 @@ def style_extract(state: dict) -> dict:
     profile = PROFILE
     if any(w in brief for w in ("bathroom", "toilet")):        # the live VLM is told to add items the brief asks for
         profile = PROFILE.model_copy(update={"items": PROFILE.items + [ItemSpec(
-            item_type="bathroom_finishes", description="new bathroom floor and wall tiles, as in the owner's brief",
-            priority="must")]})
+            item_type="bathroom_finishes", description=project.notes[:300], room="bathroom", priority="must")]})
+    if re.search(r"\b(wall|partition)\b", brief) and re.search(r"\b(hack\w*|demolish\w*|remov\w*|erect\w*)\b", brief):
+        profile = profile.model_copy(update={"items": profile.items + [ItemSpec(
+            item_type="partition_wall_change", description=project.notes[:300], room="living", priority="must")]})
+    if re.search(r"\b(raise|raising|raised)\b.*\bfloor\b", brief):
+        profile = profile.model_copy(update={"items": [i.model_copy(update={"description": project.notes[:300],
+            "work_method": "raise"}) if i.item_type == "floor_tiles" else i for i in profile.items]})
     return {"style_profile": profile,
             "trace": [{"node": "style_extract", "action": "profile", "why": "demo: a fixed Japandi reading of the board"
                        + (" + the bathroom finishes the brief asked for" if profile is not PROFILE else "")}]}

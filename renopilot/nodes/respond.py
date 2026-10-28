@@ -70,6 +70,11 @@ def render(state: dict) -> str:
         if project is not None and project.total_budget:
             line += f" Your furniture budget is {fmt_sgd(project.total_budget)}."
         lines.append(line)
+    pending = [s for s in sugg if not s.product_id and s.status != "approved" and s.verdict]
+    if pending:
+        lines.append("\nWorks still requiring clarification (not cleared to proceed):")
+        for s in pending:
+            lines.append(f"  - {s.title} ({s.room or 'room unknown'}): {s.verdict.reason}")
     for b in blocked(state.get("suggestions")):
         lines.append(f"\nNot allowed under HDB rules: {b['title'] or b['item_type'].replace('_', ' ')}. {b['reason']}"
                      + (f" Instead: {b['alternative']}" if b["alternative"] else "") + f" ({b['rule_id']}, {b['citation']})")

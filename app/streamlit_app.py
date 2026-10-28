@@ -126,12 +126,17 @@ def hdb_routes(c: dict) -> None:
     """A finish's HDB routes (the guard's verdict per way of doing it): the owner picks one;
     blocked routes are shown, never offered."""
     by_id = {r["rule_id"]: r for r in c["routes"]}
-    ok = [r["rule_id"] for r in c["routes"] if r["decision"] != "block"]
-    if ok:
-        st.radio("How will this be done?", ok, key=f"route_{c['item_type']}",
-                 index=ok.index(c["rule_id"]) if c["rule_id"] in ok else 0,
+    ok = [r["rule_id"] for r in c["routes"] if r["decision"] in ("allow", "allow_with_permit")]
+    if ok and c["work_method"] == "unspecified":
+        route_key = f"route_{c['key']}"
+        if route_key in st.session_state and st.session_state[route_key] not in ok:
+            del st.session_state[route_key]
+        st.radio("How will this be done?", ok, key=f"route_{c['key']}",
+                 index=ok.index(c["rule_id"]) if c["rule_id"] in ok else None,
                  format_func=lambda i: f"{by_id[i]['route']} ({PLAIN[by_id[i]['decision']]})",
                  captions=[md(by_id[i]["reason"]) for i in ok])
+    if c["work_method"] != "unspecified" or c["verdict"] == "escalate":
+        st.warning(md(f"{PLAIN[c['verdict']]}: {c['verdict_reason']}"))
     for r in c["routes"]:
         if r["decision"] == "block":
             st.caption(md(f":red[Not allowed] · {r['route']}: {r['reason']}"))
@@ -368,6 +373,16 @@ elif gate and gate["type"] == "approval":
     for e in gate.get("escalations") or []:
         st.info(md(e))
     show_blocked(gate.get("blocked") or [])
+    for s in state.get("suggestions") or []:
+        if s.status != "rejected" or not s.verdict or s.verdict.decision != "block":
+            continue
+        options = {o.rule_id: o for o in s.verdict.options if o.decision in ("allow", "allow_with_permit")}
+        if options:
+            alternative = st.selectbox(f"Permitted alternative to {s.title[:60]}", list(options), index=None,
+                format_func=lambda rid, opts=options: opts[rid].route, key=f"alternative_{s.key}")
+            if st.button("Propose this alternative", key=f"propose_{s.key}", disabled=not alternative):
+                run(Command(resume={"alternatives": {s.key: alternative}}))
+                st.rerun()
     with st.form("approval"):
         by_type: dict[str, list[dict]] = {}
         for c in gate["suggestions"]:
@@ -381,6 +396,8 @@ elif gate and gate["type"] == "approval":
                         if c["product_id"]:
                             picture(c.get("image_path"))
                         st.markdown(f"**{c['title'][:60]}**")
+                        if c.get("room"):
+                            st.caption(f"Room: {c['room'].replace('_', ' ')}")
                         if c["product_id"]:
                             if c.get("landed"):
                                 est = " · estimated" if c.get("estimated") else ""
@@ -412,8 +429,8 @@ elif gate and gate["type"] == "approval":
     if approve or reject:
         rejects = [{"product_id": c["product_id"], "reason": st.session_state.get(f"why_{c['product_id']}", "")}
                    for c in gate["suggestions"] if c["product_id"] and st.session_state.get(f"rej_{c['product_id']}")]
-        routes = {c["item_type"]: st.session_state[f"route_{c['item_type']}"] for c in gate["suggestions"]
-                  if f"route_{c['item_type']}" in st.session_state}
+        routes = {c["key"]: st.session_state[f"route_{c['key']}"] for c in gate["suggestions"]
+                  if st.session_state.get(f"route_{c['key']}")}
         run(Command(resume=({"approve": "all"} if approve or not rejects else {"reject": rejects}) | {"routes": routes}))
         st.rerun()
 

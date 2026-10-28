@@ -55,7 +55,7 @@ def build_graph(planner: str = "llm", checkpointer=None, nodes: dict | None = No
         b.add_node("pricing", impl["pricing"], retry_policy=RETRY)
     b.add_node("ask_user", impl["ask_user"])
     b.add_node("compliance_guard", impl["compliance_guard"])
-    b.add_node("approval", impl["approval"], destinations=("respond", "planner"))
+    b.add_node("approval", impl["approval"], destinations=("respond", "planner", "approval", "compliance_guard"))
     b.add_node("respond", impl["respond"])
 
     b.add_edge(START, "intake")

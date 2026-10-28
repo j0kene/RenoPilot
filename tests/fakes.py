@@ -14,7 +14,7 @@ PROFILE = StyleProfile(
     style_tags=["japandi"], palette=["light_wood", "off_white_cream"], materials=["light_wood", "linen_cotton"],
     items=[ItemSpec(item_type="sofa", description="low linen sofa"),
            ItemSpec(item_type="coffee_table", description="round light oak coffee table"),
-           ItemSpec(item_type="floor_tiles", description="matte grey terrazzo floor tiles", priority="nice")],
+           ItemSpec(item_type="floor_tiles", description="matte grey terrazzo floor tiles", priority="nice", room="living")],
     summary="Warm, pared-back Japandi living room.")
 
 # a tiny catalog: (id, type, price)
@@ -34,7 +34,7 @@ def fake_shortlist(state):
     new, esc = [], []
     for t in types:
         if t == "floor_tiles":
-            new.append(Suggestion(item_type=t, work_type="finish", title="terrazzo tiles"))
+            new.append(Suggestion(item_type=t, work_type="finish", title="terrazzo tiles", room="living"))
             continue
         ok = [(i, p) for i, tt, p in CATALOG if tt == t and i not in exclude and (caps[t] is None or p <= caps[t])]
         if len(ok) < 3:

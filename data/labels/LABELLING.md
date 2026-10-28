@@ -20,7 +20,7 @@ expected to agree with one person more than two people agree with each other).
   explorer preview or Windows Photos is fine). Label the look the photos **share**, the way you would
   describe the board to a friend who wants to recreate it.
 - Separate several values with `;` and no spaces needed, e.g. `japandi;minimalist`.
-- Roughly 2-3 minutes per board: 28 boards is about 1-1.5 hours each.
+- Roughly 2-3 minutes per board: 27 boards is about 1-1.5 hours per labeller.
 
 | column | what to write | how many | tips |
 |---|---|---|---|

@@ -23,11 +23,13 @@ from langchain_core.messages import HumanMessage  # noqa: E402
 from langgraph.types import Command  # noqa: E402
 
 from renopilot import config, trace  # noqa: E402
+from renopilot.basket import offers_for, selection, summary  # noqa: E402
 from renopilot.catalog.embed import slug  # noqa: E402
 from renopilot.compliance import PLAIN  # noqa: E402
 from renopilot.demo import demo_nodes  # noqa: E402
 from renopilot.graph import build_graph  # noqa: E402
 from renopilot.nodes.guard import blocked  # noqa: E402
+from renopilot.nodes.respond import shopping_list_csv  # noqa: E402
 from renopilot.schemas import ProjectProfile  # noqa: E402
 from renopilot.tools.budget import fmt_sgd  # noqa: E402
 from renopilot.vocab import LOOSE_FURNITURE  # noqa: E402
@@ -260,6 +262,9 @@ with st.sidebar:
             caps[t] = float(st.number_input(f"Max for one {t.replace('_', ' ')}", min_value=0, value=1500 if t == "sofa" else 400,
                                             step=50, key=f"cap_{t}", disabled=st.session_state.started))
 
+    if sum(caps.values()) > total:
+        st.caption("Your category caps exceed the total. Each chosen item and the final delivered basket must still fit the total budget.")
+
     st.header("4. Agent")
     not_live = live_ready()
     mode = st.radio("Mode", [DEMO, LIVE], horizontal=True, disabled=st.session_state.started,
@@ -304,7 +309,7 @@ if go:
     if (planner, mode) != (st.session_state.planner, st.session_state.mode):
         reset(planner, mode)
     st.session_state.started = True
-    form = ProjectProfile(total_budget=total or None, budget_by_category=caps, completion_date=done,
+    form = ProjectProfile(total_budget=total, budget_by_category=caps, completion_date=done,
                           flat_type=None if flat_type == "not sure" else flat_type)
     run({"board_images": paths, "project": form,
          "messages": [HumanMessage(brief.strip())] if brief.strip() else []})
@@ -353,13 +358,26 @@ if gate and gate["type"] == "question":
         with st.form("answer"):
             answer = st.text_input("Your answer")
             new_caps = st.text_input("Change budgets (optional, e.g. sofa=2000, rug=300)")
+            new_total = st.number_input("New total furniture budget (optional)", min_value=0.0, value=None, step=100.0)
+            new_done = st.date_input("Confirm block completion date (optional)", value=None, format="YYYY-MM-DD")
             more = st.file_uploader("Add images (optional)", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True)
             if st.form_submit_button("Send", type="primary"):
                 resume = {"answer": answer}
-                if new_caps.strip():
-                    resume["budget_by_category"] = {k.strip(): float(v) for k, v in
-                                                    (kv.split("=") for kv in new_caps.split(",") if "=" in kv)}
-                if more:
+                try:
+                    if new_caps.strip():
+                        resume["budget_by_category"] = {k.strip(): float(v) for k, v in
+                                                        (kv.split("=") for kv in new_caps.split(","))}
+                    if new_total is not None:
+                        resume["total_budget"] = new_total
+                    if new_done:
+                        resume["completion_date"] = new_done
+                    ProjectProfile.model_validate(project.model_dump() | {
+                        "budget_by_category": project.budget_by_category | resume.get("budget_by_category", {}),
+                        "total_budget": resume.get("total_budget", project.total_budget)})
+                except (ValueError, TypeError):
+                    st.error("Use item_type=amount, for example coffee_table=300. Amounts must be finite, non-negative SGD values.")
+                    st.stop()
+                if more and mode == LIVE:
                     up = config.CACHE / "uploads" / st.session_state.cfg["configurable"]["thread_id"]
                     up.mkdir(parents=True, exist_ok=True)
                     for f in more:
@@ -369,7 +387,33 @@ if gate and gate["type"] == "question":
                 st.rerun()
 
 elif gate and gate["type"] == "approval":
-    st.subheader("Shortlist: approve or reject")
+    st.subheader("Choose your shopping list")
+    st.caption("Pick one offer per furniture category. Work awaiting clarification stays pending.")
+    if gate.get("error"):
+        st.error(md(gate["error"]))
+    with st.expander("Update budgets or completion date"):
+        with st.form("update_project"):
+            update_total = st.number_input("New overall budget (SGD)", min_value=0.0, value=None, step=100.0)
+            update_caps = st.text_input("New category caps (e.g. sofa=1200, coffee_table=300)")
+            update_done = st.date_input("Block completion date", value=None, format="YYYY-MM-DD")
+            if st.form_submit_button("Update project and search again"):
+                try:
+                    changes = {}
+                    if update_total is not None:
+                        changes["total_budget"] = update_total
+                    if update_caps.strip():
+                        changes["budget_by_category"] = {k.strip(): float(v) for k, v in
+                                                         (kv.split("=") for kv in update_caps.split(","))}
+                    if update_done:
+                        changes["completion_date"] = update_done
+                    if not changes:
+                        raise ValueError("Enter at least one change.")
+                    ProjectProfile.model_validate(project.model_dump() | changes)
+                except (ValueError, TypeError):
+                    st.error("Enter a total, a completion date, or category=amount caps using finite, non-negative SGD values.")
+                else:
+                    run(Command(resume=changes))
+                    st.rerun()
     for e in gate.get("escalations") or []:
         st.info(md(e))
     show_blocked(gate.get("blocked") or [])
@@ -383,7 +427,9 @@ elif gate and gate["type"] == "approval":
             if st.button("Propose this alternative", key=f"propose_{s.key}", disabled=not alternative):
                 run(Command(resume={"alternatives": {s.key: alternative}}))
                 st.rerun()
-    with st.form("approval"):
+    offers = offers_for(state.get("suggestions") or [])
+    selected = {}
+    with st.container():
         by_type: dict[str, list[dict]] = {}
         for c in gate["suggestions"]:
             by_type.setdefault(c["item_type"], []).append(c)
@@ -414,7 +460,8 @@ elif gate and gate["type"] == "approval":
                             for a in c.get("comparables") or []:
                                 badge = " · :orange[SAMPLE DATA]" if a["sample"] else ""
                                 word = ":green[cheaper]" if a["cheaper"] else "similar"
-                                st.caption(md(f"{word} at {a['source']}: {a['title'][:45]}, {a['landed']} landed") + badge)
+                                st.caption(md(f"{word} at {a['source']}: {a['title'][:45]}, {a['landed']} landed") + badge
+                                           + (f" · [link]({a['url']})" if a.get("url") else ""))
                         if c.get("routes"):
                             hdb_routes(c)
                         elif c["verdict"] and c["verdict"] != "allow":
@@ -423,22 +470,56 @@ elif gate and gate["type"] == "approval":
                             st.checkbox("Reject", key=f"rej_{c['product_id']}")
                             st.text_input("Why?", key=f"why_{c['product_id']}", placeholder="e.g. too bulky",
                                           label_visibility="collapsed")
+            if t in offers:
+                by_id = {s.product_id: s for s in offers[t]}
+                ids = list(by_id)
+                default = gate.get("selected", {}).get(t)
+                pick_key = f"pick_{t}"
+                if st.session_state.get(pick_key) not in ids:
+                    st.session_state[pick_key] = default if default in ids else ids[0]
+                selected[t] = st.selectbox(f"Choose one {t.replace('_', ' ')}", ids, key=pick_key,
+                    format_func=lambda pid, items=by_id: f"{items[pid].title} · {fmt_sgd(items[pid].price_quote.total_sgd) if items[pid].price_quote else 'delivered price unavailable'}")
+        picks = [next(s for s in offers[t] if s.product_id == pid) for t, pid in selected.items()]
+        totals = summary(picks)
+        cols = st.columns(3)
+        cols[0].metric("Selected delivered total", fmt_sgd(totals["total_sgd"]))
+        cols[1].metric("Total budget", fmt_sgd(project.total_budget))
+        if project.total_budget is not None:
+            cols[2].metric("Remaining", fmt_sgd(round(project.total_budget - totals["total_sgd"], 2)))
+        st.caption(totals["basis"] + (" · includes estimates" if totals["estimated"] else ""))
+        invalid = None
+        try:
+            selection(state.get("suggestions") or [], selected, project)
+        except ValueError as e:
+            invalid = str(e)
+            st.warning(md(invalid))
         a, b = st.columns(2)
-        approve = a.form_submit_button("Approve all", type="primary", width="stretch")
-        reject = b.form_submit_button("Submit rejections", width="stretch")
+        approve = a.button("Approve selected basket", type="primary", width="stretch", disabled=bool(invalid))
+        reject = b.button("Submit rejections", width="stretch")
     if approve or reject:
         rejects = [{"product_id": c["product_id"], "reason": st.session_state.get(f"why_{c['product_id']}", "")}
                    for c in gate["suggestions"] if c["product_id"] and st.session_state.get(f"rej_{c['product_id']}")]
         routes = {c["key"]: st.session_state[f"route_{c['key']}"] for c in gate["suggestions"]
                   if st.session_state.get(f"route_{c['key']}")}
-        run(Command(resume=({"approve": "all"} if approve or not rejects else {"reject": rejects}) | {"routes": routes}))
+        run(Command(resume=({"approve": "selected", "selected": selected} if approve else {"reject": rejects}) | {"routes": routes}))
         st.rerun()
 
 else:
     msgs = state.get("messages") or []
     if msgs:
-        st.subheader("Your shortlist")
-        st.success("Shortlist approved." if state.get("approved") else "Finished.")
+        st.subheader("Your shopping list")
+        st.success("Selected basket approved." if state.get("approved") else "Finished.")
+        chosen = [s for s in state.get("suggestions") or [] if s.product_id and s.status == "approved"]
+        if state.get("approved"):
+            totals = summary(chosen)
+            cols = st.columns(3)
+            cols[0].metric("Delivered total", fmt_sgd(totals["total_sgd"]))
+            cols[1].metric("Budget", fmt_sgd(project.total_budget))
+            if project.total_budget is not None:
+                cols[2].metric("Remaining", fmt_sgd(round(project.total_budget - totals["total_sgd"], 2)))
+            st.caption(totals["basis"] + (" · includes estimates" if totals["estimated"] else ""))
+            st.download_button("Download shopping list (CSV)", shopping_list_csv(state),
+                               file_name="renopilot_shopping_list.csv", mime="text/csv")
         show_blocked(blocked(state.get("suggestions")))
         works = [x for x in state.get("suggestions") or [] if not x.product_id and x.status == "approved" and x.verdict]
         if works:
@@ -449,6 +530,9 @@ else:
             st.markdown(md(f"**{x.title}** · {v.route or v.reason} · {PLAIN[v.decision]}") + link)
             for cond in v.conditions:
                 st.caption(md(f"- {cond}"))
+        for x in state.get("suggestions") or []:
+            if not x.product_id and x.status == "proposed" and x.verdict:
+                st.warning(md(f"Pending: {x.title} ({x.room or 'room unknown'}). {x.verdict.reason}"))
         by_type: dict[str, list] = {}
         for x in state.get("suggestions") or []:
             if x.product_id and x.status == "approved":

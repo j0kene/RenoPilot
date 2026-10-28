@@ -2,9 +2,13 @@
 and claim in the reply comes from a tool or the owner, so there is nothing to make up."""
 from __future__ import annotations
 
+import csv
+import io
+
 from langchain_core.messages import AIMessage
 
 from renopilot import trace
+from renopilot.basket import summary
 from renopilot.compliance import PLAIN
 from renopilot.nodes.guard import blocked
 from renopilot.pricing.landed_cost import basket_total
@@ -63,12 +67,17 @@ def render(state: dict) -> str:
     priced = {t: [s for s in items if s.product_id and _cost(s) is not None] for t, items in by_type.items()}
     priced = {t: v for t, v in priced.items() if v}
     if priced:
-        first, cheapest, basis = _totals(priced)
-        line = (f"\nBuying one item per type: the first option for each comes to {fmt_sgd(first)}, "
-                f"the cheapest options to {fmt_sgd(cheapest)} ({basis}).")
         project = state.get("project")
-        if project is not None and project.total_budget:
-            line += f" Your furniture budget is {fmt_sgd(project.total_budget)}."
+        if state.get("approved"):
+            totals = summary([s for items in priced.values() for s in items])
+            line = f"\nSelected basket total: {fmt_sgd(totals['total_sgd'])} ({totals['basis']})."
+            if project is not None and project.total_budget is not None:
+                line += (f" Your furniture budget is {fmt_sgd(project.total_budget)}; "
+                         f"remaining: {fmt_sgd(project.total_budget - totals['total_sgd'])}.")
+        else:
+            first, cheapest, basis = _totals(priced)
+            line = (f"\nBuying one item per type: the first option for each comes to {fmt_sgd(first)}, "
+                    f"the lowest single-item offers to {fmt_sgd(cheapest)} ({basis}).")
         lines.append(line)
     pending = [s for s in sugg if not s.product_id and s.status != "approved" and s.verdict]
     if pending:
@@ -83,6 +92,41 @@ def render(state: dict) -> str:
     if not state.get("approved") and sugg:
         lines.append("\nNothing has been approved yet. Nothing is bought or added to a cart; you decide.")
     return "\n".join(lines) or "I could not build a shortlist from this board."
+
+
+def shopping_list_csv(state: dict) -> str:
+    """Export chosen offers and unresolved works, with the shared-delivery total made explicit."""
+    buf = io.StringIO(newline="")
+    writer = csv.writer(buf)
+
+    def write(row):
+        # Retailer text remains text when the CSV is opened in a spreadsheet.
+        writer.writerow(["'" + v if isinstance(v, str) and v.lstrip().startswith(("=", "+", "-", "@")) else v for v in row])
+
+    write(["Category", "Room", "Item", "Status", "Item SGD", "Shipping SGD", "GST SGD",
+                  "Delivery if bought alone SGD", "Total if bought alone SGD", "Estimated", "Link / HDB source", "Notes"])
+    picks = []
+    for s in state.get("suggestions") or []:
+        if s.product_id and s.status != "approved":
+            continue
+        q = s.price_quote
+        if s.product_id:
+            picks.append(s)
+        write([s.item_type, s.room or "", s.title, s.status,
+                      q.item_sgd if q else "", q.shipping_sgd if q else "", q.gst_sgd if q else "",
+                      q.local_delivery_sgd if q else "", q.total_sgd if q else "", q.estimated if q else "",
+                      s.url if s.product_id else s.verdict.citation if s.verdict else "",
+                      s.reason if s.product_id else s.verdict.reason if s.verdict else "Not checked"])
+    totals = summary(picks)
+    write([])
+    for source, fee in totals["delivery_by_source"].items():
+        write(["DELIVERY", "", source, "", "", "", "", fee])
+    write(["BASKET TOTAL", "", "Delivery counted once per local retailer", "", "", "", "", "", totals["total_sgd"]])
+    project = state.get("project")
+    if project and project.total_budget is not None:
+        write(["BUDGET", "", "", "", "", "", "", "", project.total_budget])
+        write(["REMAINING", "", "", "", "", "", "", "", round(project.total_budget - totals["total_sgd"], 2)])
+    return buf.getvalue()
 
 
 def respond(state: dict) -> dict:

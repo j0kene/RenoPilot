@@ -169,7 +169,7 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
     specs = list({(s.item_type, s.room, s.work_method) if WORK_TYPE_OF[s.item_type] != "loose_furniture"
                   else (s.item_type,): s for s in reversed(profile.items)
                   if item_types is None or s.item_type in item_types}.values())[::-1]   # one per type, first wins
-    caps = caps_for(project, [s.item_type for s in specs])
+    caps = caps_for(project, [s.item_type for s in profile.items if WORK_TYPE_OF[s.item_type] == "loose_furniture"])
     board_emb = (get_embedder(index.embed_spec).images([resolve(b) for b in board_paths])
                  if "board_img" in signals and board_paths else None)
 
@@ -214,7 +214,7 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
                 suggestions.append(Suggestion(
                     product_id=p.id, item_type=spec.item_type, work_type="loose_furniture",
                     title=p.title, reason=reason, score=round(h.score, 5), price_sgd=p.price_sgd,
-                    url=p.url, image_path=p.image_path, room=spec.room))
+                    url=p.url, image_path=p.image_path, room=spec.room, source=p.source))
     return suggestions, escalations
 
 

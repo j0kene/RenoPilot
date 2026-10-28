@@ -41,7 +41,8 @@ def test_happy_path_parks_at_approval_then_responds(tmp_path):
     # the owner will hack out the old tiles instead; a blocked route (raising the floor) is never taken
     final = g.invoke(Command(resume={"approve": "all", "routes": {"floor_tiles": "HDB-FLOOR-REPLACE"}}), cfg)
     assert final["approved"] is True
-    assert "Buying one item per type" in final["messages"][-1].content
+    assert "Selected basket total" in final["messages"][-1].content
+    assert sum(s.status == "approved" for s in final["suggestions"] if s.product_id) == 2
     tiles = next(s for s in final["suggestions"] if s.item_type == "floor_tiles")
     assert tiles.verdict.rule_id == "HDB-FLOOR-REPLACE" and tiles.verdict.decision == "allow_with_permit"
     assert len(tiles.verdict.options) == 3

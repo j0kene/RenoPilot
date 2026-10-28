@@ -44,4 +44,4 @@ def test_total_and_format():
          Suggestion(item_type="rug", work_type="loose_furniture", price_sgd=89.9, status="rejected")]
     assert total(s) == 1299.0
     assert total(s, status=None) == 1388.9
-    assert fmt_sgd(1299) == "S$1,299" and fmt_sgd(89.9) == "S$89.90" and fmt_sgd(None) == "price n/a"
+    assert fmt_sgd(1299) == "S$1,299.00" and fmt_sgd(89.9) == "S$89.90" and fmt_sgd(None) == "price n/a"

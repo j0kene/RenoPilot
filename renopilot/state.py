@@ -26,5 +26,7 @@ class State(TypedDict, total=False):
     refinements: dict[str, str]                       # item_type -> extra search words from owner feedback
     steps: int                                        # planner decisions this turn (cap: MAX_PLANNER_STEPS)
     approved: bool                                    # owner has approved the shortlist
-    approval_error: Optional[str]                     # invalid requests remain at the approval gate
+    selected: dict[str, str]                          # item type -> one approved product/offer id
+    approval_error: Optional[str]                     # invalid selection stays at the approval gate
+    pricing_enabled: bool                            # False only for the explicit pricing ablation
     trace: Annotated[list[dict], operator.add]        # compact decision log: {"node", "action", "why"}

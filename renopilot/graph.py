@@ -46,7 +46,10 @@ def build_graph(planner: str = "llm", checkpointer=None, nodes: dict | None = No
             "shortlist": shortlist_node, "pricing": pricing_node, "ask_user": ask_user,
             "compliance_guard": compliance_guard, "approval": approval, "respond": respond} | (nodes or {})
     b = StateGraph(State)
-    b.add_node("intake", impl["intake"], retry_policy=RETRY)
+    def checked_intake(state):
+        return impl["intake"](state) | {"pricing_enabled": pricing}
+
+    b.add_node("intake", checked_intake, retry_policy=RETRY)
     b.add_node("planner", impl["planner"], retry_policy=RETRY,
                destinations=("style_extract", "shortlist", "ask_user", "compliance_guard", "respond"))
     b.add_node("style_extract", impl["style_extract"], retry_policy=RETRY)

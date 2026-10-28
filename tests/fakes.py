@@ -29,7 +29,7 @@ def fake_style_extract(state):
 def fake_shortlist(state):
     profile = state["style_profile"]
     types = state.get("shortlist_types") or [i.item_type for i in profile.items]
-    caps = caps_for(state.get("project"), types)
+    caps = caps_for(state.get("project"), [i.item_type for i in profile.items if i.item_type != "floor_tiles"])
     exclude = {r["product_id"] for r in state.get("rejected") or [] if r.get("product_id")}
     new, esc = [], []
     for t in types:
@@ -47,7 +47,7 @@ def fake_shortlist(state):
 
 
 def fake_pricing(state):
-    return {}                                      # pricing has its own tests (tests/test_pricing_node.py)
+    return fake_pricing_node()(state)
 
 
 FAKE_NODES = {"style_extract": fake_style_extract, "shortlist": fake_shortlist, "pricing": fake_pricing}

@@ -6,7 +6,8 @@ runs again from its first line. Both nodes only READ before the interrupt.
 Resume values (what the UI / CLI sends back with Command(resume=...)):
   ask_user  {"answer": str, "budget_by_category": {item_type: SGD}?, "total_budget": SGD?,
              "board_images": [paths]?}
-  approval  {"approve": "all"} or {"reject": [{"product_id": str, "reason": str}]}
+  approval  {"approve": "selected", "selected": {item_type: product_id}} or reject rows.
+            "approve": "all" is a CLI shortcut to one default offer per category.
             "routes": {suggestion.key: rule_id} chooses a method for unspecified work;
             "alternatives": {blocked_suggestion.key: rule_id} proposes a separate checked alternative.
             Budget/date changes return to the planner and invalidate affected shortlists.
@@ -18,6 +19,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command, interrupt
 
 from renopilot import trace
+from renopilot.basket import defaults, selection
 from renopilot.compliance import rule
 from renopilot.nodes.guard import blocked, requested_method, verdict_for, with_route
 from renopilot.schemas import ProjectProfile
@@ -86,6 +88,7 @@ def approval(state: dict) -> Command:
     live = [s for s in state.get("suggestions") or [] if s.status != "rejected"]
     decision = interrupt({"type": "approval", "suggestions": [_card(s) for s in live],
                           "blocked": blocked(state.get("suggestions")), "escalations": state.get("escalations") or [],
+                          "selected": state.get("selected") or defaults(live, state.get("project")),
                           "error": state.get("approval_error")})
     # ---- after resume
     if not isinstance(decision, dict):
@@ -100,7 +103,7 @@ def approval(state: dict) -> Command:
         except (ValueError, TypeError):
             return Command(goto="approval", update={"approval_error": "Enter valid, finite, non-negative SGD budgets."})
         profile = state.get("style_profile")
-        return Command(goto="planner", update={"project": updated, "approval_error": None,
+        return Command(goto="planner", update={"project": updated, "selected": {}, "approval_error": None,
             "approved": False, "steps": 0, "open_issues": [],
             "redo_types": list(dict.fromkeys(i.item_type for i in profile.items)) if profile else []})
     if decision.get("alternatives"):
@@ -155,15 +158,25 @@ def approval(state: dict) -> Command:
     trace.log("approval", "decision", n_rejected=len(rejected_rows), unknown_ids=unknown, routes=chosen)
     if not rejected_rows:
         if not decision.get("approve"):
-            return Command(goto="approval", update={"approval_error": "Select an item to reject, or explicitly approve."})
-        out = [s.model_copy(update={"status": "approved"}) if s.status != "rejected" and
-               (s.product_id or (s.verdict and s.verdict.decision in ("allow", "allow_with_permit"))) else s for s in out]
-        return Command(goto="respond", update={"suggestions": out, "approved": True, "approval_error": None,
-            "trace": [{"node": "approval", "action": "approved", "why": "owner"}]})
+            return Command(goto="approval", update={"approval_error": "Select an offer to reject, or explicitly approve your selection."})
+        selected = decision.get("selected", defaults(out, state.get("project")))
+        try:
+            picks, _ = selection(out, selected, state.get("project"), require_quotes=state.get("pricing_enabled", True))
+        except (ValueError, TypeError) as e:
+            return Command(goto="approval", update={"approval_error": str(e), "selected": selected, "approved": False})
+        selected_ids = {s.product_id for s in picks}
+        out = [s.model_copy(update={"status": "approved" if (s.product_id in selected_ids if s.product_id else
+               bool(s.verdict and s.verdict.decision in ("allow", "allow_with_permit"))) else "proposed"})
+               if s.status != "rejected" else s for s in out]
+        present = {s.product_id for s in out}
+        out += [s.model_copy(update={"status": "approved"}) for s in picks if s.product_id not in present]
+        return Command(goto="respond", update={"suggestions": out, "approved": True, "selected": selected,
+                                               "approval_error": None,
+                                               "trace": [{"node": "approval", "action": "approved", "why": "owner"}]})
     redo = list(dict.fromkeys(r["item_type"] for r in rejected_rows))
     return Command(goto="planner", update={
         "suggestions": out, "rejected": rejected_rows, "approved": False, "redo_types": redo,
-        "approval_error": None, "steps": 0,
+        "selected": {}, "approval_error": None, "steps": 0,
         "messages": [HumanMessage("Rejected: " + "; ".join(f"{r['item_type']} ({r['reason'] or 'no reason'})"
                                                           for r in rejected_rows))],
         "trace": [{"node": "approval", "action": "rejected", "why": ", ".join(redo)}]})

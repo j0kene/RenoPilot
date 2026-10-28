@@ -5,7 +5,7 @@ the Compliance guard and the Pricing agent plug in by reading `Suggestion` and f
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,8 +26,8 @@ class ProjectProfile(BaseModel):
     """What the owner tells us once. Budgets are SGD caps per single item of that type."""
     flat_type: Optional[Literal["2-room", "3-room", "4-room", "5-room", "executive", "other"]] = None
     completion_date: Optional[date] = Field(None, description="Block completion date (drives the 3-year finish rules)")
-    total_budget: Optional[float] = Field(None, ge=0, description="Total furniture budget, SGD")
-    budget_by_category: dict[str, float] = Field(default_factory=dict,
+    total_budget: Optional[float] = Field(None, ge=0, allow_inf_nan=False, description="Total furniture budget, SGD")
+    budget_by_category: dict[ItemType, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict,
                                                  description="item_type -> max SGD for one item")
     notes: str = ""
     as_of: Optional[date] = Field(None, description="Evaluation date; omitted for normal runs")
@@ -113,6 +113,7 @@ class PricedAlternative(BaseModel):
     url: str = ""
     quote: PriceQuote
     why_comparable: str = ""
+    image_path: str = ""
 
 
 # --------------------------------------------------------------------------- downstream
@@ -148,6 +149,7 @@ class Suggestion(BaseModel):
     room: Optional[Room] = None
     work_method: WorkMethod = "unspecified"
     structural: Optional[bool] = None
+    source: Optional[Source] = None
 
     @property
     def key(self) -> str:

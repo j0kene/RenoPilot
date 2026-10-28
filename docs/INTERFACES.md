@@ -10,7 +10,9 @@ without touching each other's files. If you need to change one of these, agree i
 START -> intake -> planner -> {style_extract | ask_user} -> planner ...
                    planner -> shortlist -> pricing -> planner
                    planner -> compliance_guard -> approval -> respond -> END
-                                                  approval -> planner   (owner rejected something)
+                                                  approval -> planner   (rejections / project changes)
+                                                  approval -> compliance_guard (separate alternative)
+                                                  approval -> approval (invalid basket, parked again)
 ```
 
 `compliance_guard -> approval` is a fixed edge: nothing reaches the owner without a verdict,
@@ -48,13 +50,18 @@ under an output schema); with `RENOPILOT_BACKEND=openai` it is native. Either wa
 |---|---|---|
 | `product_id`, `title`, `price_sgd`, `url`, `image_path`, `reason`, `score` | Style agent | `product_id=None` for a finish or built-in the board asked for but that isn't a product |
 | `item_type`, `work_type` | Style agent | `work_type` comes from `vocab.WORK_TYPE_OF`: `loose_furniture`, `finish`, `built_in` |
+| `room`, `work_method`, `structural` | Style agent | copied from each `ItemSpec`, independently of the board's overall room; unknown facts stay unknown |
 | `verdict: Verdict` | **Compliance guard** | `decision` = allow / allow_with_permit / block / escalate, plus `reason`, `rule_id`, `alternative`, `citation` |
 | `price_quote: PriceQuote` | **Pricing agent** | landed cost of this item: `item_sgd`, `shipping_sgd`, `local_delivery_sgd` (if bought alone), `gst_sgd`, `gst_basis`, `total_sgd`, `lines`, `assumptions`, `estimated`, `synthetic`, `fx_rate/fx_date/fx_stale` |
 | `comparables: list[PricedAlternative]` | **Pricing agent** | up to 2 comparable offers at other retailers, each with its own `PriceQuote` and a `why_comparable` |
-| `status` | approval gate | proposed / approved / rejected |
+| `status` | approval gate | approved for the one chosen offer per category and cleared work; alternatives and unresolved work stay proposed, blocked work stays rejected |
 
 `ProjectProfile` holds `flat_type`, `completion_date` (optional: it narrows the bathroom routes) and the budgets.
 Only the owner (through an interrupt's resume value) can change the budget; no model output can.
+`State.selected` maps furniture categories to one offered product id, including real comparables. The
+server revalidates ids, verdicts, delivered prices, category caps and the complete basket at approval.
+Local delivery is charged once per retailer. Synthetic comparable fixtures cannot be selected. CSV
+export uses the same chosen items and total. `pricing_enabled=False` is the listed-price ablation only.
 
 ## Compliance guard (implemented: `renopilot/nodes/guard.py`)
 
@@ -65,20 +72,28 @@ against the saved page). `compliance.routes(item_type, room, completion_date)` r
 Most finishes can be done more than one way, and HDB treats the ways differently: overlaying floor tiles needs
 no permit, hacking them out needs one, raising the floor is not allowed, and bathroom tiles cannot be replaced in
 the block's first 3 years. So each card is a **route**, and `Verdict.options` holds the guard's verdict for every
-route, easiest first. The verdict in effect is the easiest legal route; at the approval gate the owner can switch to
-another listed route (resume `{"routes": {item_type: rule_id}}`), never to a blocked one. Facts narrow the list:
-the board's room (a bathroom card replaces the general card for the same method) and `completion_date`, which
-drops the route for the other block age. Without a date both are listed, and picking one states the fact.
+route, easiest first. The verdict in effect evaluates the **requested method**. An unknown method
+escalates until explicitly chosen. Unknown item rooms never inherit the board's majority room.
+`Suggestion.key` includes type, room and method, allowing living-room and bathroom tiles to coexist;
+route choices use that key. Type-only keys are accepted for unambiguous legacy requests.
+
+A prohibited method stays blocked even if a different method is possible. Resume
+`{"alternatives": {blocked_key: rule_id}}` creates a separate proposal and rechecks it through the guard.
+An absent completion date cannot be asserted by choosing an older-block route: age-dependent
+replacement routes escalate until the date is supplied. `ProjectProfile.as_of` freezes the reference
+date for evaluations; ordinary UI runs omit it. Wall demolition requires known structural status,
+and household-shelter restrictions take precedence over general routes.
 
 | case | verdict |
 |---|---|
 | loose furniture | `allow`, no options |
-| finish / built-in with cards | easiest route in effect, all routes in `options`, each with `rule_id`, `route`, `conditions`, `citation` |
+| finish / built-in with cards | requested method checked; unknown method or critical facts escalate; other routes remain in `options` |
 | every route blocked | `block`: the suggestion is rejected (by "guard") with the reason and the card's `alternative` |
 | no card covers it | `escalate` with `HDB-NOT-LISTED` (ask HDB); the guard never guesses |
 
-The red-team / injection evals belong to this workstream: follow `evals/run_graph.py` for the pattern
-(cases JSONL + a trajectory grader + `run_eval`).
+`evals/run_compliance.py` implements QA, red-team and injection enforcement suites, with separate live
+model runs. `evals/run_end_to_end.py` exercises complete SG-catalog journeys. Human verification of
+expected labels is separate from automated results; see `docs/HUMAN_HANDOFF.md`.
 
 ## Pricing agent (implemented: `renopilot/pricing/`)
 

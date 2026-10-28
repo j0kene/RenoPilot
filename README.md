@@ -2,8 +2,10 @@
 
 From mood board to a compliant, priced shortlist for BTO owners in Singapore (CS621 group project).
 
-This repo currently holds **P0, mood board → shortlist**: the shared LangGraph skeleton plus the Style agent, with
-its data and evals. Pricing is in (`renopilot/pricing/`); Compliance plugs into the same graph (see [docs/INTERFACES.md](docs/INTERFACES.md)).
+The integrated demo runs mood board → style and retrieval → landed pricing → HDB check → owner selection.
+Choose one offer per furniture category, see the delivered basket total and remaining budget, and export a
+CSV shopping list. Each renovation item carries its own room and requested method. Blocked work stays
+blocked; an owner-chosen alternative is a separate proposal checked by the guard again.
 
 ## Setup (Windows, Python 3.12)
 
@@ -32,7 +34,7 @@ Sources, licences and snapshot dates: [data/SOURCES.md](data/SOURCES.md).
 ## Run
 
 ```bash
-python -m uv run --group ui streamlit run app/streamlit_app.py     # demo UI: "Demo (offline)" mode needs no setup
+python -m uv run --group ui streamlit run app/streamlit_app.py     # offline mode: one labelled scripted Japandi example
 python -m uv run python evals/demo_trace.py                          # the same offline demo, scripted, to Langfuse
 python -m uv run python -m renopilot.run_cli --board data/boards/japandi_01 --budget sofa=1500,coffee_table=400
 python -m uv run python -m renopilot.run_cli --board a.jpg b.jpg c.jpg --total 6000 --planner fixed
@@ -44,6 +46,9 @@ The owner's details go in two ways, merged at intake: form fields / CLI flags (f
 budgets) always win, and a free-text brief ("What would you like?" / `--brief`) fills anything they leave empty
 (read by the intake model; by a small parser in demo mode). The completion date drives HDB's 3-year bathroom rule;
 items the brief asks for (e.g. bathroom tiles) are added to the board's items.
+Offline mode only accepts `japandi_01`; its fixed profile and code-driven models demonstrate the workflow,
+not image understanding. Use Live for other example boards or uploads. Unknown work methods and rooms
+stay pending instead of inheriting a majority-room classification or silently taking the easiest route.
 
 Prices: `RENOPILOT_FX=snapshot` uses the frozen FX file (reproducible, offline); the default fetches daily
 rates from Frankfurter. Overseas rows are currently synthetic sample data (see `data/SOURCES.md`).
@@ -71,6 +76,25 @@ call (prompt, reply, tokens). See [docs/INTERFACES.md](docs/INTERFACES.md) for t
 | `python -m uv run pytest tests/test_landed_cost.py` | 30 hand-worked landed-cost cases, exact to the cent | exact |
 
 Results append to `evals/results/*.jsonl`, so an interrupted run resumes where it stopped.
+New outcomes include a fingerprint of the code, grounding data, case inputs and expected labels;
+outdated outcomes are not reused after changes. Incomplete repetitions do not count as pass^5.
+
+Additional evaluation commands:
+
+```bash
+python -m uv run python evals/run_compliance.py --n-runs 5          # 50 QA + 20 adversarial + 10 injection contracts
+python -m uv run python evals/run_compliance.py --live --n-runs 5   # real request interpretation / injected shopper
+python -m uv run python evals/run_end_to_end.py --mode demo --n-runs 5  # 10 complete SG-catalog journeys
+python -m uv run python evals/run_end_to_end.py --mode live --n-runs 5  # real vision/planner/shoppers/pricing
+python -m uv run python evals/run_shortlist.py --prepare --n-runs 5    # real SG top-five results + paired BM25 baseline
+python -m uv run python evals/run_shortlist.py --score --n-runs 5      # only after humans label the prepared results
+```
+
+Contract results establish deterministic enforcement, not live-model injection resistance. The ABO
+Recall@10 suite is a retrieval diagnostic; `run_shortlist.py` measures final SG Precision@5 from human
+judgements. Both human style-label sheets are still pending; no automatic substitute labels were added.
+The complete human task list, review rubrics, file locations and acceptance criteria are in
+[docs/HUMAN_HANDOFF.md](docs/HUMAN_HANDOFF.md).
 
 ## Layout
 

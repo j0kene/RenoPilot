@@ -50,7 +50,7 @@ WORK_TYPE_OF = {
 ITEM_TYPES = tuple(WORK_TYPE_OF)
 LOOSE_FURNITURE = tuple(t for t, w in WORK_TYPE_OF.items() if w == "loose_furniture")
 
-ROOMS = ("living", "dining", "bedroom", "kitchen", "bathroom", "study", "mixed")
+ROOMS = ("living", "dining", "bedroom", "kitchen", "bathroom", "study", "household_shelter", "mixed")
 
 FAILURE_TAGS = (
     "style_misread", "retrieval_miss", "over_budget", "wrong_tool", "tool_error",

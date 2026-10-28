@@ -5,7 +5,7 @@ the Compliance guard and the Pricing agent plug in by reading `Suggestion` and f
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,7 @@ Material = Literal[MATERIALS]           # type: ignore[valid-type]
 ItemType = Literal[ITEM_TYPES]          # type: ignore[valid-type]
 Room = Literal[ROOMS]                   # type: ignore[valid-type]
 WorkType = Literal["loose_furniture", "finish", "built_in"]
+WorkMethod = Literal["unspecified", "overlay", "replace", "raise", "demolish", "erect"]
 Source = Literal["abo", "ikea_sg", "castlery", "taobao", "other_sg"]
 
 
@@ -25,10 +26,11 @@ class ProjectProfile(BaseModel):
     """What the owner tells us once. Budgets are SGD caps per single item of that type."""
     flat_type: Optional[Literal["2-room", "3-room", "4-room", "5-room", "executive", "other"]] = None
     completion_date: Optional[date] = Field(None, description="Block completion date (drives the 3-year finish rules)")
-    total_budget: Optional[float] = Field(None, ge=0, description="Total furniture budget, SGD")
-    budget_by_category: dict[str, float] = Field(default_factory=dict,
+    total_budget: Optional[float] = Field(None, ge=0, allow_inf_nan=False, description="Total furniture budget, SGD")
+    budget_by_category: dict[ItemType, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict,
                                                  description="item_type -> max SGD for one item")
     notes: str = ""
+    as_of: Optional[date] = Field(None, description="Evaluation date; omitted for normal runs")
 
 
 # --------------------------------------------------------------------------- the board
@@ -39,6 +41,9 @@ class ItemSpec(BaseModel):
     colours: list[Colour] = Field(default_factory=list, max_length=3)
     materials: list[Material] = Field(default_factory=list, max_length=3)
     priority: Literal["must", "nice"] = "must"
+    room: Optional[Room] = Field(None, description="Room containing THIS item, even on a mixed board; null if unknown")
+    work_method: WorkMethod = Field("unspecified", description="Requested renovation method; never substitute a safer method")
+    structural: Optional[bool] = Field(None, description="For wall demolition: true for structural/RC, false only if confirmed non-structural")
 
 
 class StyleProfile(BaseModel):
@@ -108,6 +113,7 @@ class PricedAlternative(BaseModel):
     url: str = ""
     quote: PriceQuote
     why_comparable: str = ""
+    image_path: str = ""
 
 
 # --------------------------------------------------------------------------- downstream
@@ -140,3 +146,12 @@ class Suggestion(BaseModel):
     price_quote: Optional[PriceQuote] = None          # Pricing agent: landed cost of this item
     comparables: list[PricedAlternative] = Field(default_factory=list)   # cheaper/similar elsewhere
     status: Literal["proposed", "approved", "rejected"] = "proposed"
+    room: Optional[Room] = None
+    work_method: WorkMethod = "unspecified"
+    structural: Optional[bool] = None
+    source: Optional[Source] = None
+
+    @property
+    def key(self) -> str:
+        """Independent choices for, e.g., living-room and bathroom floor tiles."""
+        return self.product_id or f"{self.item_type}:{self.room or 'unknown'}:{self.work_method}"

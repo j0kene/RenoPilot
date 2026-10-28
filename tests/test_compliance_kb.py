@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 
 from renopilot import config
-from renopilot.compliance import cards, routes, rules_for
+from renopilot.compliance import IMPLIED_ROOM, cards, routes, rules_for
 from renopilot.vocab import LOOSE_FURNITURE, ROOMS, WORK_TYPE_OF
 
 RAW = config.DATA / "raw" / "hdb"
@@ -67,4 +67,8 @@ def test_every_finish_and_built_in_has_a_legal_route_in_every_room():
     for t, work in WORK_TYPE_OF.items():
         if work != "loose_furniture":
             for room in ROOMS:
+                if room == "household_shelter":
+                    continue  # restrictions here deliberately override otherwise legal renovation routes
+                if t in IMPLIED_ROOM and room != IMPLIED_ROOM[t]:
+                    continue
                 assert any(c["decision"] != "block" for c in routes(t, room=room)), (t, room)

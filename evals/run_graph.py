@@ -74,8 +74,10 @@ def make_agent(planner: str, real_style: bool):
         if nodes is not None and mode in ("landed", "stale_fx"):
             nodes["pricing"] = fake_pricing_node(stale=mode == "stale_fx")
         g = build_graph(planner=planner, nodes=nodes, pricing=mode != "off")
-        project = ProjectProfile(budget_by_category=inp.get("budget", {}), total_budget=inp.get("total"))
-        board = inp["board"] if real_style and inp.get("board") else fake_board(inp["n_images"])
+        project = ProjectProfile.model_validate({"budget_by_category": inp.get("budget", {}),
+            "total_budget": inp.get("total"), "as_of": inp.get("as_of", "2026-10-28")})
+        board = (inp.get("board") or [str(p) for p in sorted((config.BOARDS / "japandi_01").glob("*.jpg"))][:inp["n_images"]]
+                 ) if real_style else fake_board(inp["n_images"])
         gates, shown, resumes = [], [], []
         with trace.tracing() as t:
             cfg = trace.run_config("renopilot-eval-graph", recursion_limit=80, run_id=t.run_id,
@@ -164,9 +166,10 @@ def grade(case, result) -> bool:
     if e.get("no_pricing_node") and any(d["node"] == "pricing" for d in state.get("trace", [])):
         fails.append("wrong_tool")
     if e.get("within_caps"):
-        caps = caps_for(state.get("project"), [s.item_type for s in state.get("suggestions", [])])
-        if any(s.price_sgd is not None and caps.get(s.item_type) is not None and s.price_sgd > caps[s.item_type]
-               for s in state.get("suggestions", [])):
+        caps = caps_for(state.get("project"), [s.item_type for s in state.get("suggestions", []) if s.product_id])
+        if any(caps.get(s.item_type) is not None and
+               (s.price_quote.total_sgd if s.price_quote else s.price_sgd or 0) > caps[s.item_type]
+               for s in state.get("suggestions", []) if s.status != "rejected" and s.product_id):
             fails.append("over_budget")
     result.failure_tags = sorted(set(fails))
     return not fails
@@ -186,7 +189,8 @@ def main() -> None:
         tag = f"{planner_model}_{PROMPT_VERSION}" if planner == "llm" else "na"
         out = config.ROOT / "evals" / "results" / f"graph_{planner}_{tag}{'_real' if args.real_style else ''}.jsonl"
         reports[planner] = run_eval(make_agent(planner, args.real_style), cases, grade, n_runs=n,
-                                    name=f"planner={planner}", resume_file=out)
+                                    name=f"planner={planner}", resume_file=out,
+                                    revision=f"{planner}:{args.real_style}:{config.BACKEND}:{config.MODELS[config.BACKEND]}")
     print()
     for name, rep in reports.items():
         print(rep.render(baseline=reports.get("fixed") if name == "llm" else None))

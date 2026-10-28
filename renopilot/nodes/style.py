@@ -33,7 +33,7 @@ from renopilot.tools.budget import caps_for, fmt_sgd
 from renopilot.vocab import WORK_TYPE_OF
 
 SG_SOURCES = config.SG_SOURCES
-PROMPT_VERSION = "style-v1"
+PROMPT_VERSION = "style-v2-room-method"
 
 EXTRACT_SYSTEM = """You are an interior stylist helping a Singapore BTO flat owner turn a mood board into a shopping list.
 
@@ -42,10 +42,17 @@ Look at ALL the images together and describe the look they share.
 - palette: the 2-6 colours that define the board, most dominant first.
 - materials: the materials that recur across the board.
 - items: the distinct pieces worth shopping for that are clearly visible (furniture, lighting, rugs,
-  and prominent finishes such as floor tiles or a feature wall). One entry per item type, at most 12.
+  and prominent finishes such as floor tiles or a feature wall). At most 12 entries. Finishes in
+  DIFFERENT rooms are separate items even when their item_type matches.
   The description is what you would type into a furniture shop's search box: shape, material,
   colour, one distinguishing detail. At most 20 words. No brand names.
   priority "must" for the hero pieces that carry the look, "nice" for the rest.
+  room: the room containing THIS item, independent of the board's overall room. Bathroom floor
+  tiles on a mixed living/bathroom board must have room="bathroom". Use null if it is unclear.
+  work_method: preserve any method explicitly requested in the brief (overlay, replace, raise,
+  demolish, erect); otherwise unspecified. Never turn demolition into erecting a partition.
+  structural: true for a structural/RC wall, false only if explicitly confirmed non-structural;
+  otherwise null. Do not infer a wall's structural status from a photo.
 - summary: one sentence describing the look.
 Only describe what you can see. If the images disagree, follow the majority."""
 
@@ -159,9 +166,10 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
     from renopilot.nodes.shopper import shop          # the shopper imports this module
     picker = picker or config.PICKER
     index = index or get_index()
-    specs = list({s.item_type: s for s in reversed(profile.items)
+    specs = list({(s.item_type, s.room, s.work_method) if WORK_TYPE_OF[s.item_type] != "loose_furniture"
+                  else (s.item_type,): s for s in reversed(profile.items)
                   if item_types is None or s.item_type in item_types}.values())[::-1]   # one per type, first wins
-    caps = caps_for(project, [s.item_type for s in specs])
+    caps = caps_for(project, [s.item_type for s in profile.items if WORK_TYPE_OF[s.item_type] == "loose_furniture"])
     board_emb = (get_embedder(index.embed_spec).images([resolve(b) for b in board_paths])
                  if "board_img" in signals and board_paths else None)
 
@@ -172,7 +180,8 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
         work_type = WORK_TYPE_OF[spec.item_type]
         if work_type != "loose_furniture":
             suggestions.append(Suggestion(item_type=spec.item_type, work_type=work_type,
-                                          title=spec.description, reason="Requested by the board"))
+                                          title=spec.description, room=spec.room, work_method=spec.work_method,
+                                          structural=spec.structural, reason="Requested by the board"))
             continue
         hits = index.search(query_text(spec, profile), item_type=spec.item_type, board_emb=board_emb,
                             max_price=caps.get(spec.item_type), sources=sources,
@@ -205,7 +214,7 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
                 suggestions.append(Suggestion(
                     product_id=p.id, item_type=spec.item_type, work_type="loose_furniture",
                     title=p.title, reason=reason, score=round(h.score, 5), price_sgd=p.price_sgd,
-                    url=p.url, image_path=p.image_path))
+                    url=p.url, image_path=p.image_path, room=spec.room, source=p.source))
     return suggestions, escalations
 
 
@@ -234,7 +243,9 @@ def make_shortlist(index: CatalogIndex | None = None, signals: tuple[str, ...] =
         new, escalations = build_shortlist(profile, state.get("project"), state.get("board_images") or [],
                                            item_types=types, exclude_ids=exclude, sources=config.SHORTLIST_SOURCES,
                                            index=index, signals=signals, shopper_model=shopper_model)
-        kept = [s for s in state.get("suggestions") or [] if s.item_type not in types or s.status == "rejected"]
+        new_keys = {s.key for s in new}
+        kept = [s for s in state.get("suggestions") or [] if s.item_type not in types or
+                (s.status == "rejected" and s.key not in new_keys)]
         return {"suggestions": kept + new, "escalations": escalations, "open_issues": escalations,
                 "redo_types": [t for t in state.get("redo_types") or [] if t not in types], "shortlist_types": [],
                 "trace": [{"node": "shortlist", "action": "searched",

@@ -14,7 +14,7 @@ PROFILE = StyleProfile(
     style_tags=["japandi"], palette=["light_wood", "off_white_cream"], materials=["light_wood", "linen_cotton"],
     items=[ItemSpec(item_type="sofa", description="low linen sofa"),
            ItemSpec(item_type="coffee_table", description="round light oak coffee table"),
-           ItemSpec(item_type="floor_tiles", description="matte grey terrazzo floor tiles", priority="nice")],
+           ItemSpec(item_type="floor_tiles", description="matte grey terrazzo floor tiles", priority="nice", room="living")],
     summary="Warm, pared-back Japandi living room.")
 
 # a tiny catalog: (id, type, price)
@@ -29,12 +29,12 @@ def fake_style_extract(state):
 def fake_shortlist(state):
     profile = state["style_profile"]
     types = state.get("shortlist_types") or [i.item_type for i in profile.items]
-    caps = caps_for(state.get("project"), types)
+    caps = caps_for(state.get("project"), [i.item_type for i in profile.items if i.item_type != "floor_tiles"])
     exclude = {r["product_id"] for r in state.get("rejected") or [] if r.get("product_id")}
     new, esc = [], []
     for t in types:
         if t == "floor_tiles":
-            new.append(Suggestion(item_type=t, work_type="finish", title="terrazzo tiles"))
+            new.append(Suggestion(item_type=t, work_type="finish", title="terrazzo tiles", room="living"))
             continue
         ok = [(i, p) for i, tt, p in CATALOG if tt == t and i not in exclude and (caps[t] is None or p <= caps[t])]
         if len(ok) < 3:
@@ -47,7 +47,7 @@ def fake_shortlist(state):
 
 
 def fake_pricing(state):
-    return {}                                      # pricing has its own tests (tests/test_pricing_node.py)
+    return fake_pricing_node()(state)
 
 
 FAKE_NODES = {"style_extract": fake_style_extract, "shortlist": fake_shortlist, "pricing": fake_pricing}

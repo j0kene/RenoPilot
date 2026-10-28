@@ -22,6 +22,7 @@ from renopilot.pricing.landed_cost import landed_cost
 from renopilot.pricing.rules import load_rules
 from renopilot.schemas import PricedAlternative, Product
 from renopilot.tools.budget import caps_for, fmt_sgd, within
+from renopilot.vocab import LOOSE_FURNITURE
 
 KEEP_COMPARABLES = 2
 COMPARE_TOP_N = 2        # comparables only for the first N suggestions per item type (the likely buys)
@@ -57,7 +58,7 @@ def make_pricing(products: dict[str, Product] | None = None, pool: list[Product]
                 trace.log("pricing", "unpriced", product=sugg[i].product_id, error=str(e))
                 continue
             stale |= q.fx_stale
-            sugg[i] = sugg[i].model_copy(update={"price_quote": q})
+            sugg[i] = sugg[i].model_copy(update={"price_quote": q, "source": by_id[sugg[i].product_id].source})
 
         # ---- comparables for the top suggestions per type; pairs batched into few judge calls
         if comparables and todo:
@@ -69,7 +70,9 @@ def make_pricing(products: dict[str, Product] | None = None, pool: list[Product]
                 seen_per_type[s.item_type] = seen_per_type.get(s.item_type, 0) + 1
                 if i in todo and seen_per_type[s.item_type] <= COMPARE_TOP_N:
                     targets.append(i)
-            groups = [(by_id[sugg[i].product_id], find_candidates(by_id[sugg[i].product_id], all_products, idx))
+            excluded = {r.get("product_id") for r in state.get("rejected") or [] if r.get("by") != "pricing"}
+            candidates = [p for p in all_products if p.id not in excluded]
+            groups = [(by_id[sugg[i].product_id], find_candidates(by_id[sugg[i].product_id], candidates, idx))
                       for i in targets]
             groups = [g for g in groups if g[1]]
             chunks, cur, n = [], [], 0
@@ -96,12 +99,15 @@ def make_pricing(products: dict[str, Product] | None = None, pool: list[Product]
                         continue
                     stale |= cq.fx_stale
                     alts.append(PricedAlternative(product_id=cand.id, source=cand.source, title=cand.title,
-                                                  url=cand.url, quote=cq, why_comparable=why))
+                                                  url=cand.url, quote=cq, why_comparable=why, image_path=cand.image_path))
                 alts.sort(key=lambda a: a.quote.total_sgd)
                 sugg[i] = sugg[i].model_copy(update={"comparables": alts[:KEEP_COMPARABLES]})
 
         # ---- budget on landed cost (hard rule)
-        caps = caps_for(state.get("project"), [s.item_type for s in sugg])
+        profile = state.get("style_profile")
+        types = [i.item_type for i in profile.items if i.item_type in LOOSE_FURNITURE] if profile else [
+            s.item_type for s in sugg if s.work_type == "loose_furniture"]
+        caps = caps_for(state.get("project"), types)
         removed, types_hit = [], set()
         for i, s in enumerate(sugg):
             q = s.price_quote

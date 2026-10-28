@@ -81,7 +81,8 @@ def test_graph_run_is_one_trace_with_tools_under_their_nodes(tmp_path, spans):
     assert [s.name for s in got if s.parent.span_id not in by_id] == ["test", "test"]   # parked, resumed
     parent = lambda s: by_id[s.parent.span_id].name                  # noqa: E731
     tools = {(s.name, parent(s)) for s in got if s.attributes.get(TYPE) == "tool"}
-    assert tools == {("landed_cost", "pricing"), ("hdb_rule_check", "compliance_guard"), ("basket_total", "respond")}
+    assert tools == {("landed_cost", "pricing"), ("hdb_rule_check", "compliance_guard"),
+                     ("basket_total", "approval"), ("basket_total", "respond")}
     assert {"intake", "planner", "approval", "respond"} <= {s.name for s in got}
 
 

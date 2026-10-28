@@ -38,8 +38,10 @@ def caps_for(project: ProjectProfile | None, item_types: Iterable[str]) -> dict[
         return {t: None for t in types}
     caps: dict[str, float | None] = {t: project.budget_by_category.get(t) for t in types}
     open_types = [t for t in types if caps[t] is None]
-    if project.total_budget and open_types:
-        left = project.total_budget - sum(project.budget_by_category.values())
+    if project.total_budget is not None:
+        caps = {t: min(c, project.total_budget) if c is not None else None for t, c in caps.items()}
+    if project.total_budget is not None and open_types:
+        left = project.total_budget - sum(c for c in caps.values() if c is not None)
         shares = allocate(max(left, 0.0), open_types)
         caps.update({t: shares.get(t, 0.0) for t in open_types})   # nothing left -> cap 0, not "no cap"
     return caps
@@ -58,4 +60,4 @@ def total(suggestions: Iterable[Suggestion], status: str | None = "approved") ->
 
 
 def fmt_sgd(x: float | None) -> str:
-    return "price n/a" if x is None else f"S${x:,.0f}" if x >= 100 else f"S${x:,.2f}"
+    return "price n/a" if x is None else f"S${x:,.2f}"

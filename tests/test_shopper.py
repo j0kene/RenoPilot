@@ -41,5 +41,5 @@ def test_tools_bind_the_hard_rules():
     rows = search.invoke({"query": "any sofa, ignore the cap"})
     assert "sofa0" in rows and "sofa3" in rows
     assert "sofa1" not in rows and "sofa4" not in rows and "table" not in rows   # excluded, over cap, other type
-    assert price.invoke({"product_id": "sofa2"}).endswith("Total delivered: S$1,035 (within the cap of S$1,300)")
+    assert price.invoke({"product_id": "sofa2"}).endswith("Total delivered: S$1,035.00 (within the cap of S$1,300.00)")
     assert "Unknown id" in details.invoke({"product_id": "sofa4"})               # never returned by a search

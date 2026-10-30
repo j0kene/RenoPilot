@@ -1,0 +1,13 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.7.0 -- /home1/liujiayang/workspace/code/ftm/smu/agentic_ai/group_project/RenoPilot/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home1/liujiayang/workspace/code/ftm/smu/agentic_ai/group_project/RenoPilot
+configfile: pyproject.toml
+plugins: langsmith-0.14.12, anyio-4.15.1
+collecting ... collected 3 items
+
+tests/test_llm_live.py::test_text PASSED                                 [ 33%]
+tests/test_llm_live.py::test_structured_nested_with_image PASSED         [ 66%]
+tests/test_llm_live.py::test_tool_calling PASSED                         [100%]
+
+============================== 3 passed in 13.47s ==============================

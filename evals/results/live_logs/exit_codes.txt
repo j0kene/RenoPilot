@@ -1,0 +1,4 @@
+e2e exit 1
+qa exit 0
+redteam exit 1
+injection exit 0

@@ -1,0 +1,9 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  [e2e (live)] run 1/1 e01: PASS
+=== e2e (live) ===
+pass rate     100.0%  (sd 0.0% over 1 runs; 95% CI over cases 100.0%-100.0%)
+pass^1        100.0%   pass@1 100.0%
+cost/task     $0.6025 (API-equivalent)
+latency/task  99.91s
+failure clusters:

@@ -36,7 +36,7 @@ MENU = ("extract_style", "shortlist", "ask_user", "finalize")
 GOTO = {"extract_style": "style_extract", "shortlist": "shortlist", "ask_user": "ask_user",
         "finalize": "compliance_guard"}
 MAX_REVISIONS = 1
-PROMPT_VERSION = "planner-tools-v1"     # v0 (structured output) results: evals/results/graph_llm_sonnet*.jsonl
+PROMPT_VERSION = "planner-tools-v2"     # v0 (structured output) results: evals/results/graph_llm_sonnet*.jsonl
 
 
 class Decision(BaseModel):
@@ -55,8 +55,9 @@ TOOLS = [
     create_model("extract_style", __doc__="Style agent: read the mood board into a style profile "
                  "(only if there is no profile yet).", why=_WHY),
     create_model("shortlist", __doc__="Style agent: find products for the listed item types; the Pricing agent "
-                 "then prices them. Use it first for all shoppable items on the board, and again for item types "
-                 "the owner rejected, with a refinement drawn from their feedback.",
+                 "then prices them. Finishes and built-ins pass through it to the compliance check. Use it first "
+                 "for every item on the board, and again for item types the owner rejected, with a refinement "
+                 "drawn from their feedback.",
                  item_types=(list[ItemType], Field(description="Which item types to (re)search")),
                  refinement=(Optional[str], Field(None, description="Extra search words drawn from the owner's "
                                                                     "feedback, at most 12 words")), why=_WHY),
@@ -70,10 +71,19 @@ TOOLS = [
 PLANNER_SYSTEM = """You coordinate RenoPilot, which turns a homeowner's mood board into a shortlist of products.
 You are the master agent: call exactly ONE tool for the next step; each tool hands the work to a subagent.
 You cannot change the budget yourself: only the owner can, when you ask them.
+The owner's message adds to the board's items; it never replaces them. Every item in the style profile,
+including finishes, built-ins and renovation requests, goes through shortlist before finalize.
 Be economical: do not repeat a step that has already succeeded."""
 
 
 # --------------------------------------------------------------------------- rules (code)
+def unsearched(state: dict) -> list[str]:
+    """Item types in the profile not searched yet. A search that found nothing still counts."""
+    profile = state.get("style_profile")
+    done = set(state.get("searched_types") or []) | {s.item_type for s in state.get("suggestions") or []}
+    return list(dict.fromkeys(i.item_type for i in profile.items if i.item_type not in done)) if profile else []
+
+
 def check_action(state: dict, d: Decision) -> str | None:
     """Why this decision is not allowed now, or None."""
     profile = state.get("style_profile")
@@ -96,8 +106,7 @@ def check_action(state: dict, d: Decision) -> str | None:
             return f"item types not on the board: {off}"
         # No repeat searches without a reason (MAST "step repetition"): a type may be searched
         # if it never was, or if the owner gave feedback / changed its budget since.
-        searched = {s.item_type for s in state.get("suggestions") or []}
-        allowed = (board - searched) | set(state.get("redo_types") or [])
+        allowed = set(unsearched(state)) | set(state.get("redo_types") or [])
         repeat = sorted(t for t in d.item_types if t not in allowed)
         if repeat:
             return (f"{repeat} already searched and nothing has changed since; "
@@ -111,6 +120,8 @@ def check_action(state: dict, d: Decision) -> str | None:
             return f"open issue to resolve first: {state['open_issues'][0]}"
         if state.get("redo_types"):
             return f"item types still need a new search: {state['redo_types']}"
+        if unsearched(state):                         # the live planner narrowed to what the brief named
+            return f"items in the style profile not searched yet: {unsearched(state)}"
     return None
 
 
@@ -124,10 +135,13 @@ def fixed_policy(state: dict) -> Decision:
         if problem:
             return Decision(action="ask_user", question=problem, why="board still not usable")
         return Decision(action="extract_style", why="no profile yet")
+    redo = list(state.get("redo_types") or [])
+    if redo or unsearched(state):
+        return Decision(action="shortlist", item_types=list(dict.fromkeys(redo + unsearched(state))),
+                        why="owner feedback" if redo else "first search")
     if not state.get("suggestions"):
-        return Decision(action="shortlist", item_types=[i.item_type for i in profile.items], why="first search")
-    if state.get("redo_types"):
-        return Decision(action="shortlist", item_types=list(state["redo_types"]), why="owner feedback")
+        return Decision(action="ask_user", why="every search came back empty",
+                        question="Nothing on the board could be found within budget. Raise the budget or change the board?")
     return Decision(action="finalize", why="shortlist ready")
 
 
@@ -152,7 +166,8 @@ def _briefing(state: dict) -> str:
         f"Style profile: {', '.join(p.style_tags) + ' | items: ' + ', '.join(i.item_type for i in p.items) if p else 'none'}",
         f"Live product suggestions per item type: {by_type or 'none'} (prices are landed SGD totals; items over "
         "budget after delivery/shipping/GST were already removed)",
-        f"Finishes / built-ins (not searched; they go to the compliance check as requests): {finishes or 'none'}",
+        f"Items not searched yet (all must be, before finalize): {unsearched(state) or 'none'}",
+        f"Finishes / built-ins passed to the compliance check as requests: {finishes or 'none'}",
         f"Owner feedback TO ACT ON (item type: reason): {todo or 'none'}",
         f"Earlier feedback, already acted on: {done[-4:] or 'none'}",
         f"Item types needing a new search: {state.get('redo_types') or 'none'}",
@@ -202,7 +217,7 @@ def make_planner(mode: str = "llm", model=None):
             msg = f"Stopped after {steps} planning steps without finishing; please review what is here."
             trace.log("planner", "step_cap", steps=steps)
             # nothing reaches the owner unchecked: with suggestions, the cap exits through the guard
-            goto = "compliance_guard" if state.get("suggestions") else "respond"
+            goto = "compliance_guard" if state.get("suggestions") or state.get("style_profile") else "respond"
             return Command(goto=goto, update={"escalations": [msg],
                                               "trace": [{"node": "planner", "action": "step_cap", "why": msg}]})
         d = fixed_policy(state) if mode == "fixed" else llm_decide(state, model)
@@ -215,6 +230,7 @@ def make_planner(mode: str = "llm", model=None):
                              "item_types": list(d.item_types), "refinement": d.refinement}]}
         if d.action == "shortlist":
             update["shortlist_types"] = list(d.item_types)
+            update["searched_types"] = sorted(set(state.get("searched_types") or []) | set(d.item_types))
             redo = set(state.get("redo_types") or [])
             if d.refinement and redo:                # refinements come from owner feedback only
                 update["refinements"] = {**(state.get("refinements") or {}),

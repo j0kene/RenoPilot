@@ -286,9 +286,9 @@ with st.sidebar:
     if mode == LIVE:
         st.caption(f"{u['model_calls']} model calls · {u['input_tokens']:,} in / {u['output_tokens']:,} out tokens · "
                    f"~${u['cost_usd']:.2f} API-equivalent")
-        st.caption("Backend: " + config.BACKEND + " · Catalog: IKEA SG + Castlery snapshot · Pricing: landed SGD (overseas rows are sample data) · Compliance: HDB rule cards")
+        st.caption("Backend: " + config.BACKEND + " · Catalog: IKEA SG + Castlery snapshot · Pricing: landed SGD (overseas rows are illustrations, not offers) · Compliance: HDB rule cards")
     else:
-        st.caption("Models: played by code · Catalog: IKEA SG + Castlery snapshot (overseas rows are sample data) · "
+        st.caption("Models: played by code · Catalog: IKEA SG + Castlery snapshot (overseas rows are illustrations, not offers) · "
                    "Search: BM25 only · Pricing: real rules, frozen FX · Compliance: HDB rule cards")
 
 # --------------------------------------------------------------------------- main
@@ -459,9 +459,9 @@ elif gate and gate["type"] == "approval":
                                 st.markdown(md(c["price"]) + (f" · [link]({c['url']})" if c.get("url") else ""))
                             st.caption(md(c["reason"]))
                             for a in c.get("comparables") or []:
-                                badge = " · :orange[SAMPLE DATA]" if a["sample"] else ""
-                                word = ":green[cheaper]" if a["cheaper"] else "similar"
-                                st.caption(md(f"{word} at {a['source']}: {a['title'][:45]}, {a['landed']} landed") + badge
+                                word = ":orange[illustration, not a real offer]" if a["sample"] else (
+                                    ":green[cheaper]" if a["cheaper"] else "similar")
+                                st.caption(word + md(f" at {a['source']}: {a['title'][:45]}, {a['landed']} landed")
                                            + (f" · [link]({a['url']})" if a.get("url") else ""))
                         if c.get("routes"):
                             hdb_routes(c)

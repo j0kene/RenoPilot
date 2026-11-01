@@ -53,14 +53,14 @@ under an output schema); with `RENOPILOT_BACKEND=openai` it is native. Either wa
 | `room`, `work_method`, `structural` | Style agent | copied from each `ItemSpec`, independently of the board's overall room; unknown facts stay unknown |
 | `verdict: Verdict` | **Compliance guard** | `decision` = allow / allow_with_permit / block / escalate, plus `reason`, `rule_id`, `alternative`, `citation` |
 | `price_quote: PriceQuote` | **Pricing agent** | landed cost of this item: `item_sgd`, `shipping_sgd`, `local_delivery_sgd` (if bought alone), `gst_sgd`, `gst_basis`, `total_sgd`, `lines`, `assumptions`, `estimated`, `synthetic`, `fx_rate/fx_date/fx_stale` |
-| `comparables: list[PricedAlternative]` | **Pricing agent** | up to 2 comparable offers at other retailers, each with its own `PriceQuote` and a `why_comparable` |
+| `comparables: list[PricedAlternative]` | **Pricing agent** | up to 2 real comparable offers at other retailers plus at most 1 illustrative row, each with its own `PriceQuote` and a `why_comparable` |
 | `status` | approval gate | approved for the one chosen offer per category and cleared work; alternatives and unresolved work stay proposed, blocked work stays rejected |
 
 `ProjectProfile` holds `flat_type`, `completion_date` (optional: it narrows the bathroom routes) and the budgets.
 Only the owner (through an interrupt's resume value) can change the budget; no model output can.
 `State.selected` maps furniture categories to one offered product id, including real comparables. The
 server revalidates ids, verdicts, delivered prices, category caps and the complete basket at approval.
-Local delivery is charged once per retailer. Synthetic comparable fixtures cannot be selected. CSV
+Local delivery is charged once per retailer. Illustrative rows cannot be selected. CSV
 export uses the same chosen items and total. `pricing_enabled=False` is the listed-price ablation only.
 
 ## Compliance guard (implemented: `renopilot/nodes/guard.py`)
@@ -103,11 +103,12 @@ expected labels is separate from automated results; see `docs/HUMAN_HANDOFF.md`.
 | `fx.py` | Frankfurter rates, cached daily; `RENOPILOT_FX=snapshot` uses the frozen `data/pricing/fx_snapshot.json`; stale (> 24 h) is flagged, unknown currency raises | no |
 | `landed_cost.py` | `landed_cost(product) -> PriceQuote`, `basket_total(...)` (delivery once per retailer) | no |
 | `comparables.py` | `find_candidates` (same type, other retailers) + `judge_comparables` (model, ids constrained) + `dims_compatible` (code rule, overrides the model) | judge only |
-| `node.py` | `make_pricing(...)` / `pricing`: prices new suggestions, attaches the 2 cheapest comparables for the top 2 per type, removes items over budget on LANDED cost (`rejected` with `by: "pricing"`), raises an open issue if fewer than 3 remain, warns on stale FX | via comparables |
+| `node.py` | `make_pricing(...)` / `pricing`: prices new suggestions, attaches the 2 cheapest real comparables and at most 1 illustration for the top 2 per type, removes items over budget on LANDED cost (`rejected` with `by: "pricing"`), raises an open issue if fewer than 3 remain, warns on stale FX | via comparables |
 
 Overseas listings come from `data/taobao_manual.csv` (loaded by `build_index.py`, not embedded). The current
-rows are **synthetic sample fixtures** (`synthetic=true`, titles start `[SAMPLE]`, no URL); they are labelled
-"sample data" everywhere they appear and must be replaced with real rows before any real-user claim.
+rows are **made-up illustrations** (`synthetic=true`, titles start `[SAMPLE]`, no URL). They show the overseas method on
+the approval card, labelled, and nowhere else: they cannot be selected and stay out of the reply, the export and the
+totals. `docs/SCOPE_CHANGES.md` says what may be claimed. A real row, with `synthetic=false`, is treated as a real offer.
 
 The shortlist's hard budget filter still uses the listed price (a cheap pre-filter); the pricing node re-checks
 on landed cost. A pricing removal is not final: if the owner raises the budget, the item can come back

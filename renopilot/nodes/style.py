@@ -28,6 +28,7 @@ from renopilot import config, trace
 from renopilot.catalog.embed import get_embedder
 from renopilot.catalog.search import ALL_SIGNALS, CatalogIndex, Hit
 from renopilot.llm import get_model, image_block, usage_of
+from renopilot.nodes.guard import request_from
 from renopilot.schemas import ItemSpec, ProjectProfile, StyleProfile, Suggestion
 from renopilot.tools.budget import caps_for, fmt_sgd
 from renopilot.vocab import WORK_TYPE_OF
@@ -179,9 +180,7 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
     for spec in specs:
         work_type = WORK_TYPE_OF[spec.item_type]
         if work_type != "loose_furniture":
-            suggestions.append(Suggestion(item_type=spec.item_type, work_type=work_type,
-                                          title=spec.description, room=spec.room, work_method=spec.work_method,
-                                          structural=spec.structural, reason="Requested by the board"))
+            suggestions.append(request_from(spec))
             continue
         hits = index.search(query_text(spec, profile), item_type=spec.item_type, board_emb=board_emb,
                             max_price=caps.get(spec.item_type), sources=sources,

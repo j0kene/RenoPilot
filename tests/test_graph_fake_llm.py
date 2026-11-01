@@ -77,6 +77,16 @@ def test_too_few_in_budget_asks_the_owner_and_budget_change_reshortlists(tmp_pat
     assert gate["type"] == "approval"
     assert sum(c["item_type"] == "sofa" for c in gate["suggestions"]) >= 3
     assert g.get_state(cfg).values["project"].budget_by_category["sofa"] == 2000
+    searches = [t["item_types"] for t in g.get_state(cfg).values["trace"] if t.get("action") == "shortlist"]
+    assert searches[1:] == [["sofa"]]                    # only the type whose cap moved is searched again
+
+
+def test_a_changed_total_searches_every_type_whose_share_moved(tmp_path):
+    g, cfg, out = _start(tmp_path, total_budget=1200)
+    assert out["__interrupt__"][0].value["type"] == "question"
+    out = g.invoke(Command(resume={"answer": "more", "total_budget": 6000}), cfg)
+    searches = [t["item_types"] for t in g.get_state(cfg).values["trace"] if t.get("action") == "shortlist"]
+    assert searches[1:] == [["sofa", "coffee_table"]]
 
 
 def test_owner_can_decline_to_raise_budget(tmp_path):

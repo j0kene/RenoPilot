@@ -9,6 +9,8 @@ with ProjectProfile.as_of for evaluation.
 
 Contract:
   - reads suggestions, project completion/as-of dates, and individual items in the style profile
+  - adds any finish or built-in in the profile that no suggestion carries, so requested work always
+    gets a verdict whichever path led here
   - writes a Verdict on EVERY suggestion; blocked ones are marked rejected (by "guard") and are
     still shown to the owner with the reason and the legal alternative (`blocked`)
   - runs on every path to the owner: it is a graph edge, not a planner choice, so no agent
@@ -20,7 +22,7 @@ import re
 
 from renopilot import trace
 from renopilot.compliance import IMPLIED_ROOM, routes, rule
-from renopilot.schemas import ProjectProfile, Suggestion, Verdict
+from renopilot.schemas import ItemSpec, ProjectProfile, StyleProfile, Suggestion, Verdict
 from renopilot.vocab import WORK_TYPE_OF
 
 
@@ -116,10 +118,36 @@ def blocked(suggestions) -> list[dict]:
             for s in suggestions or [] if s.status == "rejected" and s.verdict and s.verdict.decision == "block"]
 
 
+def request_from(spec: ItemSpec) -> Suggestion:
+    """A finish or built-in the owner asked for, as a product-less suggestion for the guard."""
+    return Suggestion(item_type=spec.item_type, work_type=WORK_TYPE_OF[spec.item_type], title=spec.description,
+                      room=spec.room, work_method=spec.work_method, structural=spec.structural,
+                      reason="Requested by the board")
+
+
+def unchecked_requests(profile: StyleProfile | None, suggestions: list[Suggestion]) -> list[Suggestion]:
+    """Requested work no suggestion carries yet. A route the owner picked changes a key's method,
+    so a request with no method of its own matches on item type and room."""
+    out: list[Suggestion] = []
+    for spec in profile.items if profile else []:
+        if WORK_TYPE_OF[spec.item_type] == "loose_furniture":
+            continue
+        new = request_from(spec)
+        if not any(s.key == new.key or (spec.work_method == "unspecified" and
+                                        (s.item_type, s.room) == (spec.item_type, spec.room))
+                   for s in [*suggestions, *out] if not s.product_id):
+            out.append(new)
+    return out
+
+
 def compliance_guard(state: dict) -> dict:
     project, profile = state.get("project"), state.get("style_profile")
     out, blocked = [], []
-    for s in state.get("suggestions") or []:
+    suggestions = list(state.get("suggestions") or [])
+    added = unchecked_requests(profile, suggestions)
+    if added:
+        trace.log("compliance_guard", "added_requests", keys=[s.key for s in added])
+    for s in suggestions + added:
         if s.status == "rejected":
             out.append(s)
             continue

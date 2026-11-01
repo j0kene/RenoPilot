@@ -23,7 +23,17 @@ from renopilot.basket import defaults, selection
 from renopilot.compliance import rule
 from renopilot.nodes.guard import blocked, requested_method, verdict_for, with_route
 from renopilot.schemas import ProjectProfile
-from renopilot.tools.budget import fmt_sgd
+from renopilot.tools.budget import caps_for, fmt_sgd
+from renopilot.vocab import WORK_TYPE_OF
+
+
+def _stale_types(old: ProjectProfile, new: ProjectProfile, profile) -> list[str]:
+    """What a project change invalidates: a new search where a cap moved, and a new
+    check of finishes and built-ins where the completion date moved."""
+    types = list(dict.fromkeys(i.item_type for i in profile.items))
+    furniture = [t for t in types if WORK_TYPE_OF[t] == "loose_furniture"]
+    was, now = caps_for(old, furniture), caps_for(new, furniture)
+    return [t for t in types if (was[t] != now[t] if t in furniture else old.completion_date != new.completion_date)]
 
 
 def ask_user(state: dict) -> dict:
@@ -54,12 +64,10 @@ def ask_user(state: dict) -> dict:
         except ValueError:
             update["open_issues"] = ["Enter valid, non-negative SGD budgets and a valid completion date."]
             return update
-        changed = list(reply.get("budget_by_category") or {})
         profile = state.get("style_profile")
         if profile:
-            changed = [i.item_type for i in profile.items]
-        # a changed budget invalidates those types' shortlists
-        update["redo_types"] = list(dict.fromkeys((state.get("redo_types") or []) + changed))
+            update["redo_types"] = list(dict.fromkeys((state.get("redo_types") or []) +
+                                                      _stale_types(project, update["project"], profile)))
     trace.log("ask_user", "answered", question=question, reply=reply)
     return update
 
@@ -79,7 +87,7 @@ def _card(s) -> dict:
                              for ln in q.lines] if q else [],
             "estimated": bool(q and q.estimated), "assumptions": q.assumptions if q else [],
             "comparables": [{"title": a.title[:80], "source": a.source, "landed": fmt_sgd(a.quote.total_sgd),
-                             "cheaper": bool(q and a.quote.total_sgd < q.total_sgd), "sample": a.quote.synthetic,
+                             "cheaper": bool(q and not a.quote.synthetic and a.quote.total_sgd < q.total_sgd), "sample": a.quote.synthetic,
                              "estimated": a.quote.estimated, "why": a.why_comparable, "url": a.url}
                             for a in s.comparables]}
 

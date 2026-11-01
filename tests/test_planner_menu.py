@@ -2,7 +2,7 @@
 from langgraph.types import Command
 
 from renopilot import config
-from renopilot.nodes.planner import Decision, check_action, fixed_policy, llm_decide, make_planner
+from renopilot.nodes.planner import Decision, _briefing, check_action, fixed_policy, llm_decide, make_planner
 from renopilot.schemas import Suggestion
 from tests.fakes import PROFILE, ScriptedPlanner
 
@@ -21,7 +21,29 @@ def test_finalize_needs_suggestions_and_no_open_issues():
     s = [Suggestion(product_id="x", item_type="sofa", work_type="loose_furniture")]
     assert check_action({"style_profile": PROFILE, "suggestions": s, "open_issues": ["too few sofas"]},
                         Decision(action="finalize", why=""))
-    assert check_action({"style_profile": PROFILE, "suggestions": s}, Decision(action="finalize", why="")) is None
+    done = {"searched_types": ["coffee_table", "floor_tiles"]}
+    assert check_action({"style_profile": PROFILE, "suggestions": s, **done}, Decision(action="finalize", why="")) is None
+
+
+def test_finalize_is_refused_until_every_item_in_the_profile_is_searched():
+    """Regression: told "replace bathroom floor tiles", the live planner searched only the tiles and
+    stopped with nothing to approve; on other briefs it left the wall or raised floor out of the search."""
+    s = [Suggestion(item_type="floor_tiles", work_type="finish", room="bathroom")]
+    reason = check_action({"style_profile": PROFILE, "suggestions": s}, Decision(action="finalize", why=""))
+    assert "not searched yet" in reason and "sofa" in reason and "coffee_table" in reason
+    d = fixed_policy({"style_profile": PROFILE, "suggestions": s})
+    assert d.action == "shortlist" and d.item_types == ["sofa", "coffee_table"]
+
+
+def test_a_search_that_found_nothing_is_not_repeated():
+    """Nothing in the catalog for a type must not read as never searched: that would loop."""
+    s = [Suggestion(product_id="x", item_type="sofa", work_type="loose_furniture")]
+    state = {"style_profile": PROFILE, "suggestions": s, "searched_types": ["coffee_table", "floor_tiles"]}
+    assert fixed_policy(state).action == "finalize"
+    assert "already searched" in check_action(state, Decision(action="shortlist", item_types=["coffee_table"], why=""))
+    empty = {"style_profile": PROFILE, "searched_types": ["sofa", "coffee_table", "floor_tiles"]}
+    d = fixed_policy(empty)
+    assert d.action == "ask_user" and check_action(empty, d) is None
 
 
 def test_fixed_policy_is_always_legal():
@@ -65,6 +87,8 @@ def test_step_cap_ends_the_turn():
     s = Suggestion(product_id="x", item_type="sofa", work_type="loose_furniture")
     out = make_planner("fixed")({"steps": config.MAX_PLANNER_STEPS, "suggestions": [s]})
     assert out.goto == "compliance_guard"                  # nothing reaches the owner without a verdict
+    out = make_planner("fixed")({"steps": config.MAX_PLANNER_STEPS, "style_profile": PROFILE})
+    assert out.goto == "compliance_guard"                  # a profile may hold requested work
 
 
 def test_repeat_search_without_new_feedback_is_refused():
@@ -76,3 +100,9 @@ def test_repeat_search_without_new_feedback_is_refused():
     assert check_action({"style_profile": PROFILE, "suggestions": s, "redo_types": ["sofa"]}, again) is None
     first = Decision(action="shortlist", item_types=["floor_tiles"], why="never searched")
     assert check_action({"style_profile": PROFILE, "suggestions": s}, first) is None
+
+
+def test_the_briefing_names_what_is_still_unsearched():
+    s = [Suggestion(product_id="x", item_type="sofa", work_type="loose_furniture")]
+    assert "not searched yet (all must be, before finalize): ['coffee_table', 'floor_tiles']" in _briefing(
+        {"style_profile": PROFILE, "suggestions": s})

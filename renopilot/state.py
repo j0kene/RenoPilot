@@ -22,6 +22,7 @@ class State(TypedDict, total=False):
     open_issues: list[str]                            # unresolved boundary hits; cleared once the owner answers
     pending_question: Optional[str]                   # set by the planner's ask_user, answered at the interrupt
     shortlist_types: list[str]                        # item types the planner asked to (re)shortlist
+    searched_types: list[str]                         # item types the planner has already sent to shortlist
     redo_types: list[str]                             # item types needing a new search (rejections, budget changes)
     refinements: dict[str, str]                       # item_type -> extra search words from owner feedback
     steps: int                                        # planner decisions this turn (cap: MAX_PLANNER_STEPS)

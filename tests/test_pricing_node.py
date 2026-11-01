@@ -2,9 +2,12 @@
 from uuid import uuid4
 
 from langchain_core.runnables import RunnableLambda
+from langgraph.types import Command
 from PIL import Image
 
+from renopilot.demo import DEMO_BOARD, demo_nodes
 from renopilot.graph import build_graph
+from renopilot.nodes.respond import shopping_list_csv
 from renopilot.pricing.comparables import dims_compatible, find_candidates, judge_comparables
 from renopilot.pricing.fx import FxProvider
 from renopilot.pricing.node import make_pricing
@@ -90,8 +93,33 @@ def test_prices_every_live_product_and_attaches_cheapest_comparables():
     out = node(pairs)({"suggestions": [sugg("cast:sofa")], "project": ProjectProfile()})
     s = out["suggestions"][0]
     assert s.price_quote.total_sgd == 1499.0                     # castlery >= 500: free delivery
-    assert [a.product_id for a in s.comparables] == ["tb:sofa", "ikea:sofa"]          # sorted by landed total
-    assert s.comparables[0].quote.synthetic and s.comparables[0].quote.gst_basis == "import_cif"
+    assert [a.product_id for a in s.comparables] == ["ikea:sofa", "tb:sofa"]          # real offers first
+    assert s.comparables[1].quote.synthetic and s.comparables[1].quote.gst_basis == "import_cif"
+
+
+def test_illustrations_cannot_push_a_real_offer_out():
+    """Regression: the made-up CNY rows are usually cheapest, so they took both comparable slots."""
+    extra = Product(id="tb:other", source="taobao", item_type="sofa", title="[SAMPLE] Another 3-seater", price=1900,
+                    currency="CNY", dims="215x90 cm", volume_m3=1.2, ships_by="sea", synthetic=True)
+    catalog = {**BY_ID, extra.id: extra}
+    pairs = [{"shortlisted_id": "cast:sofa", "candidate_id": c, "comparable": True, "why": "3-seat"}
+             for c in ("tb:sofa", "tb:other", "ikea:sofa")]
+    pricing = make_pricing(products=catalog, pool=list(catalog.values()), index=None, fx=FX, judge_model=FakeJudge(pairs))
+    s = pricing({"suggestions": [sugg("cast:sofa")], "project": ProjectProfile()})["suggestions"][0]
+    assert [a.product_id for a in s.comparables] == ["ikea:sofa", "tb:other"]
+
+
+def test_illustrations_are_labelled_on_the_card_and_never_read_as_a_saving():
+    graph = build_graph(nodes=demo_nodes())
+    cfg = {"configurable": {"thread_id": uuid4().hex}, "recursion_limit": 80}
+    board = [str(p) for p in sorted(DEMO_BOARD.glob("*.jpg"))]
+    project = ProjectProfile(total_budget=12000, budget_by_category={"sofa": 3000, "coffee_table": 2000})
+    out = graph.invoke({"board_images": board, "project": project, "messages": []}, cfg)
+    shown = [a for c in out["__interrupt__"][0].value["suggestions"] for a in c["comparables"] if a["sample"]]
+    assert shown and not any(a["cheaper"] for a in shown)
+    final = graph.invoke(Command(resume={"approve": "all"}), cfg)
+    assert "[SAMPLE]" not in final["messages"][-1].content
+    assert "[SAMPLE]" not in shopping_list_csv(graph.get_state(cfg).values)
 
 
 def test_over_budget_on_landed_cost_is_removed_and_asked_about():

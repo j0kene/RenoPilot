@@ -52,9 +52,8 @@ def show_approval(gate: dict) -> list[dict]:
         if c["product_id"]:
             print(f"      {c['reason']}")
             for a in c.get("comparables") or []:
-                tag = " [SAMPLE DATA]" if a["sample"] else ""
-                print(f"      {'cheaper' if a['cheaper'] else 'similar'} at {a['source']}: {a['title'][:50]} "
-                      f"{a['landed']} landed{tag}")
+                word = "illustration, not a real offer," if a["sample"] else "cheaper" if a["cheaper"] else "similar"
+                print(f"      {word} at {a['source']}: {a['title'][:50]} {a['landed']} landed")
     for e in gate.get("escalations") or []:
         print(f"\n  note: {e}")
     return cards

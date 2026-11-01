@@ -14,9 +14,6 @@ from renopilot.nodes.guard import blocked
 from renopilot.pricing.landed_cost import basket_total
 from renopilot.tools.budget import fmt_sgd
 
-SAMPLE = " [SAMPLE DATA, not a real offer]"
-
-
 def _source(s) -> str:
     """Retailer of a suggestion, from its product id prefix (ikea_sg:..., castlery:..., taobao:...)."""
     return (s.product_id or "other_sg").split(":", 1)[0]
@@ -61,9 +58,8 @@ def render(state: dict) -> str:
             price = f"{fmt_sgd(q.total_sgd)} landed{' (est.)' if q.estimated else ''}" if q else fmt_sgd(s.price_sgd)
             lines.append(f"  - {s.title[:80]} ({price}) - {s.reason}{flag}\n    {s.url}")
             for a in s.comparables:
-                if q and a.quote.total_sgd < q.total_sgd:
-                    lines.append(f"      cheaper comparable: {a.title[:60]} ({a.source}), "
-                                 f"{fmt_sgd(a.quote.total_sgd)} landed{SAMPLE if a.quote.synthetic else ''}")
+                if q and not a.quote.synthetic and a.quote.total_sgd < q.total_sgd:   # illustrations stay on the card
+                    lines.append(f"      cheaper comparable: {a.title[:60]} ({a.source}), {fmt_sgd(a.quote.total_sgd)} landed")
     priced = {t: [s for s in items if s.product_id and _cost(s) is not None] for t, items in by_type.items()}
     priced = {t: v for t, v in priced.items() if v}
     if priced:

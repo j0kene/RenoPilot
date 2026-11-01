@@ -51,7 +51,8 @@ not image understanding. Use Live for other example boards or uploads. Unknown w
 stay pending instead of inheriting a majority-room classification or silently taking the easiest route.
 
 Prices: `RENOPILOT_FX=snapshot` uses the frozen FX file (reproducible, offline); the default fetches daily
-rates from Frankfurter. Overseas rows are currently synthetic sample data (see `data/SOURCES.md`).
+rates from Frankfurter. Real prices are IKEA SG and Castlery; the overseas rows are made-up illustrations of the
+landed-cost method, never offers (see `docs/SCOPE_CHANGES.md`).
 
 Every run writes a JSONL trace to `runs/<run_id>.jsonl`, one row per node or model call.
 
@@ -72,7 +73,7 @@ call (prompt, reply, tokens). See [docs/INTERFACES.md](docs/INTERFACES.md) for t
 | `python -m uv run python evals/run_retrieval.py --n-runs 5` | Recall@10 on boards of known ABO products, vs text-only baseline + ablations | deterministic |
 | `python -m uv run python evals/run_style.py --n-runs 5 --baseline` | style attribute F1 vs two human labellers | deterministic |
 | `python -m uv run python evals/run_graph.py --n-runs 5` | routes at each boundary (incl. pricing: landed-cost budget removal, stale FX, pricing off), LLM planner vs fixed pipeline | trajectory assertions |
-| `python -m uv run python evals/run_pricing.py --n-runs 5` | comparable judging on 28 labelled pairs (17 positive, 11 hard negatives) vs type-only and dims-only baselines | label match |
+| `python -m uv run python evals/run_pricing.py --n-runs 5` | comparable judging on 28 real IKEA SG/Castlery pairs (17 positive, 11 hard negatives), plus 28 with illustrative overseas rows reported separately, vs type-only and dims-only baselines | label match |
 | `python -m uv run pytest tests/test_landed_cost.py` | 30 hand-worked landed-cost cases, exact to the cent | exact |
 
 Results append to `evals/results/*.jsonl`, so an interrupted run resumes where it stopped.
@@ -86,6 +87,9 @@ python -m uv run python evals/run_compliance.py --n-runs 5          # 50 QA + 20
 python -m uv run python evals/run_compliance.py --live --n-runs 5   # real request interpretation / injected shopper
 python -m uv run python evals/run_end_to_end.py --mode demo --n-runs 5  # 10 complete SG-catalog journeys
 python -m uv run python evals/run_end_to_end.py --mode live --n-runs 5  # real vision/planner/shoppers/pricing
+python -m uv run python evals/run_compliance.py --baseline --n-runs 5   # the same model with no tools or rule table
+python -m uv run python evals/run_end_to_end.py --mode no_tools --n-runs 5        # the end-to-end no-tools baseline
+python -m uv run python evals/run_end_to_end.py --mode live --no-guard --n-runs 5 # the ablation: guard removed (--mode demo is free)
 python -m uv run python evals/run_shortlist.py --prepare --n-runs 5    # real SG top-five results + paired BM25 baseline
 python -m uv run python evals/run_shortlist.py --score --n-runs 5      # only after humans label the prepared results
 ```
@@ -94,7 +98,8 @@ Contract results establish deterministic enforcement, not live-model injection r
 Recall@10 suite is a retrieval diagnostic; `run_shortlist.py` measures final SG Precision@5 from human
 judgements. Both human style-label sheets are still pending; no automatic substitute labels were added.
 The complete human task list, review rubrics, file locations and acceptance criteria are in
-[docs/HUMAN_HANDOFF.md](docs/HUMAN_HANDOFF.md).
+[docs/HUMAN_HANDOFF.md](docs/HUMAN_HANDOFF.md). What was dropped from the proposal, and how the baselines
+are graded, is in [docs/SCOPE_CHANGES.md](docs/SCOPE_CHANGES.md).
 
 ## Layout
 
@@ -102,7 +107,7 @@ The complete human task list, review rubrics, file locations and acceptance crit
 renopilot/   config, llm (model per role), schemas + vocab + state (shared contracts), trace
   catalog/   store (SQLite), embed (open_clip/SigLIP), search (hybrid + RRF), taxonomy (title -> type)
   nodes/     intake, planner (master agent), style + shopper (ReAct subagent), guard (HDB rules), approval (+ ask_user), respond
-  demo.py    the offline demo world: models played by code, a made-up sample catalog
+  demo.py    the offline demo world: models played by code, over the frozen SG catalog snapshot
   tools/     budget (deterministic money maths)
   pricing/   rules, fx, landed_cost (deterministic), comparables (model-judged), node
   graph.py   the LangGraph wiring;  run_cli.py  terminal demo

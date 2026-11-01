@@ -2,7 +2,8 @@
 
 For every live product suggestion:
   1. landed cost (deterministic)                         -> Suggestion.price_quote
-  2. comparable offers at other retailers (model-judged) -> Suggestion.comparables (2 cheapest)
+  2. comparable offers at other retailers (model-judged) -> Suggestion.comparables: the 2 cheapest
+     real offers, then at most 1 illustrative row, which can never push a real offer out
   3. budget re-check on LANDED cost (hard rule): over the cap -> removed (by "pricing");
      fewer than MIN_IN_BUDGET left for a type -> open issue for the owner
   4. FX older than 24 h -> escalation note
@@ -25,6 +26,7 @@ from renopilot.tools.budget import caps_for, fmt_sgd, within
 from renopilot.vocab import LOOSE_FURNITURE
 
 KEEP_COMPARABLES = 2
+KEEP_ILLUSTRATIONS = 1   # made-up rows (synthetic=true) show the overseas method; they are not offers
 COMPARE_TOP_N = 2        # comparables only for the first N suggestions per item type (the likely buys)
 
 
@@ -101,7 +103,9 @@ def make_pricing(products: dict[str, Product] | None = None, pool: list[Product]
                     alts.append(PricedAlternative(product_id=cand.id, source=cand.source, title=cand.title,
                                                   url=cand.url, quote=cq, why_comparable=why, image_path=cand.image_path))
                 alts.sort(key=lambda a: a.quote.total_sgd)
-                sugg[i] = sugg[i].model_copy(update={"comparables": alts[:KEEP_COMPARABLES]})
+                real = [a for a in alts if not a.quote.synthetic][:KEEP_COMPARABLES]
+                shown = real + [a for a in alts if a.quote.synthetic][:KEEP_ILLUSTRATIONS]
+                sugg[i] = sugg[i].model_copy(update={"comparables": shown})
 
         # ---- budget on landed cost (hard rule)
         profile = state.get("style_profile")

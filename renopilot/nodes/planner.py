@@ -233,8 +233,11 @@ def make_planner(mode: str = "llm", model=None):
             update["searched_types"] = sorted(set(state.get("searched_types") or []) | set(d.item_types))
             redo = set(state.get("redo_types") or [])
             if d.refinement and redo:                # refinements come from owner feedback only
-                update["refinements"] = {**(state.get("refinements") or {}),
-                                         **{t: d.refinement for t in d.item_types if t in redo}}
+                scoped = set(state.get("refine_requests") or [])
+                items = state["style_profile"].items
+                update["refinements"] = {**(state.get("refinements") or {}), **{
+                    key: d.refinement for t in d.item_types if t in redo
+                    for key in [i.request_id for i in items if i.item_type == t and i.request_id in scoped] or [t]}}
         if d.action == "ask_user":
             update["pending_question"] = d.question
         return Command(goto=GOTO[d.action], update=update)

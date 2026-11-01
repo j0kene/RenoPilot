@@ -102,6 +102,10 @@ def main() -> None:
         while "__interrupt__" in out:
             gate = out["__interrupt__"][0].value
             if gate["type"] == "approval":
+                if gate.get("error"):
+                    print(f"\n{gate['error']}")
+                    if args.auto_approve:              # the same answer would fail again, forever
+                        raise SystemExit(1)
                 resume = ask_approval(show_approval(gate), args.auto_approve)
             else:
                 resume = ask_question(gate, args.auto_approve)

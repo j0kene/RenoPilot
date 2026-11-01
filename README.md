@@ -3,9 +3,10 @@
 From mood board to a compliant, priced shortlist for BTO owners in Singapore (CS621 group project).
 
 The integrated demo runs mood board → style and retrieval → landed pricing → HDB check → owner selection.
-Choose one offer per furniture category, see the delivered basket total and remaining budget, and export a
-CSV shopping list. Each renovation item carries its own room and requested method. Blocked work stays
-blocked; an owner-chosen alternative is a separate proposal checked by the guard again.
+Choose one offer per request (including the same furniture category in separate rooms), enter quantities,
+see delivery shared across the basket, and export a CSV shopping list. Renovation estimates are tracked
+separately from the furniture budget. Blocked work stays blocked; an owner-chosen route is previewed and
+checked again by the same compliance logic.
 
 ## Setup (Windows, Python 3.12)
 
@@ -24,6 +25,7 @@ Set `RENOPILOT_BACKEND=claude_cli` (default) or `openai` in `.env`. Claude CLI u
 python -m uv run python data/scripts/fetch_abo.py              # ABO metadata (~90 MB)
 python -m uv run python data/scripts/build_abo_subset.py       # furniture subset + images
 python -m uv run python data/scripts/collect_sg_catalog.py     # IKEA SG + Castlery -> data/sg_catalog.csv
+# Optional, bounded product-page detail requests per retailer/type: add --details-per-type N
 python -m uv run python data/scripts/build_index.py            # SQLite + SigLIP embeddings
 python -m uv run python data/scripts/make_retrieval_boards.py  # retrieval eval cases
 python -m uv run python data/scripts/fetch_unsplash_boards.py  # style eval boards (needs UNSPLASH_ACCESS_KEY)
@@ -42,10 +44,11 @@ python -m uv run python -m renopilot.run_cli --board data/boards/japandi_01 --to
 python -m uv run python -m renopilot.graph      # print the graph as mermaid
 ```
 
-The owner's details go in two ways, merged at intake: form fields / CLI flags (flat type, block completion date,
-budgets) always win, and a free-text brief ("What would you like?" / `--brief`) fills anything they leave empty
-(read by the intake model; by a small parser in demo mode). The completion date drives HDB's 3-year bathroom rule;
-items the brief asks for (e.g. bathroom tiles) are added to the board's items.
+Form fields and structured resume values carry budgets, quantities, room-specific requests, and work facts.
+The block completion date must be explicitly confirmed by the owner in the date field or a structured resume;
+a free-text brief cannot supply it. The confirmed date drives HDB's 3-year bathroom rule. Work methods and
+missing facts can be edited; unsupported renovation requests stay pending for review. The shared
+`apply_routes` check previews route changes in the UI and checks them again at approval.
 Offline mode only accepts `japandi_01`; its fixed profile and code-driven models demonstrate the workflow,
 not image understanding. Use Live for other example boards or uploads. Unknown work methods and rooms
 stay pending instead of inheriting a majority-room classification or silently taking the easiest route.
@@ -53,6 +56,12 @@ stay pending instead of inheriting a majority-room classification or silently ta
 Prices: `RENOPILOT_FX=snapshot` uses the frozen FX file (reproducible, offline); the default fetches daily
 rates from Frankfurter. Real prices are IKEA SG and Castlery; the overseas rows are made-up illustrations of the
 landed-cost method, never offers (see `docs/SCOPE_CHANGES.md`).
+
+Furniture prices are per unit; quantities multiply item costs while retailer delivery is shared per order.
+Owner work estimates record quantity, unit, rate, source, and checked date separately from `works_budget`.
+Missing rates or provenance leave works and the combined project estimate marked incomplete. Product fit uses
+only explicit axis-labelled dimensions; missing or ambiguous dimensions remain unknown. Product capture dates
+are shown with the offer. `data/catalog_overrides.csv` supports dated, source-linked manual checks.
 
 Every run writes a JSONL trace to `runs/<run_id>.jsonl`, one row per node or model call.
 
@@ -83,10 +92,12 @@ outdated outcomes are not reused after changes. Incomplete repetitions do not co
 Additional evaluation commands:
 
 ```bash
-python -m uv run python evals/run_compliance.py --n-runs 5          # 50 QA + 20 adversarial + 10 injection contracts
+python -m uv run python evals/run_compliance.py --n-runs 5          # 55 QA + 20 adversarial + 10 injection contracts
 python -m uv run python evals/run_compliance.py --live --n-runs 5   # real request interpretation / injected shopper
 python -m uv run python evals/run_end_to_end.py --mode demo --n-runs 5  # 10 complete SG-catalog journeys
 python -m uv run python evals/run_end_to_end.py --mode live --n-runs 5  # real vision/planner/shoppers/pricing
+./run_live_eval.sh                                                       # the same on macOS/Linux, starting Langfuse first
+./run_live_eval.sh compliance --n-runs 5                                 # live compliance suites; ./run_live_eval.sh cr07 e04 runs chosen cases
 python -m uv run python evals/run_compliance.py --baseline --n-runs 5   # the same model with no tools or rule table
 python -m uv run python evals/run_end_to_end.py --mode no_tools --n-runs 5        # the end-to-end no-tools baseline
 python -m uv run python evals/run_end_to_end.py --mode live --no-guard --n-runs 5 # the ablation: guard removed (--mode demo is free)

@@ -6,6 +6,8 @@ import pytest
 
 from renopilot import config
 from renopilot.compliance import IMPLIED_ROOM, cards, routes, rules_for
+from renopilot.nodes.guard import request_from, verdict_for
+from renopilot.schemas import ProjectProfile, ItemSpec
 from renopilot.vocab import LOOSE_FURNITURE, ROOMS, WORK_TYPE_OF
 
 RAW = config.DATA / "raw" / "hdb"
@@ -33,7 +35,10 @@ def test_every_quote_is_in_its_source():
 def test_every_finish_and_built_in_has_a_card():
     for t, work in WORK_TYPE_OF.items():
         if work != "loose_furniture":
-            assert rules_for(t), t
+            if t == "other_renovation":
+                assert not rules_for(t)  # unsupported work is explicitly escalated, not given an invented card
+            else:
+                assert rules_for(t), t
 
 
 def test_loose_furniture_has_no_rules():
@@ -66,6 +71,11 @@ def test_every_finish_and_built_in_has_a_legal_route_in_every_room():
     """Otherwise the guard blocks the item outright: it is shown, but the owner gets no way to do it."""
     for t, work in WORK_TYPE_OF.items():
         if work != "loose_furniture":
+            if t == "other_renovation":
+                assert routes(t) == []
+                assert verdict_for(request_from(ItemSpec(item_type=t, description="unlisted work")),
+                                   ProjectProfile()).decision == "escalate"
+                continue
             for room in ROOMS:
                 if room == "household_shelter":
                     continue  # restrictions here deliberately override otherwise legal renovation routes

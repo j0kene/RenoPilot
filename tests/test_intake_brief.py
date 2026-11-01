@@ -21,7 +21,7 @@ def test_form_fields_win_and_the_brief_fills_gaps():
     out = merge(form, parse_brief(BRIEF), BRIEF)
     assert out.total_budget == 8000                                   # form wins
     assert out.budget_by_category == {"sofa": 2000, "coffee_table": 300}   # brief adds a missing category only
-    assert out.completion_date == date(2024, 6, 1) and out.flat_type == "4-room"   # brief fills empty fields
+    assert out.completion_date is None and out.flat_type == "4-room"   # free-text date is not confirmed
     assert out.notes == BRIEF                                         # the brief is kept for later steps
 
 
@@ -31,7 +31,7 @@ def test_no_parse_result_keeps_the_form_and_the_brief():
     assert out.total_budget == 5000 and out.notes == "hello"
 
 
-def test_parser_is_skipped_when_the_form_is_complete_and_never_crashes_intake():
+def test_brief_is_read_for_category_caps_even_with_flat_and_total_and_never_crashes_intake():
     calls = []
 
     def reader(text):
@@ -40,7 +40,7 @@ def test_parser_is_skipped_when_the_form_is_complete_and_never_crashes_intake():
 
     full = ProjectProfile(flat_type="4-room", completion_date=date(2024, 6, 1), total_budget=6000)
     make_intake(parse=reader)({"board_images": BOARD, "project": full, "messages": [HumanMessage(BRIEF)]})
-    assert calls == []                                                 # nothing for the brief to fill
+    assert calls == [BRIEF]                                            # brief may still supply category caps
     out = make_intake(parse=reader)({"board_images": BOARD, "project": ProjectProfile(), "messages": [HumanMessage(BRIEF)]})
     assert calls and out["project"].notes == BRIEF                    # a failed parse is logged, not fatal
 
@@ -69,7 +69,7 @@ def test_new_block_bathroom_replacement_is_blocked():
     routes = _bathroom_routes(date.today() - timedelta(days=365))
     assert routes.get("HDB-BATH-3YR") == "block"
     assert "HDB-BATH-FLOOR-REPLACE" not in routes                     # the 3y+ route is dropped
-    assert routes.get("HDB-BATH-3YR-OVERLAY") == "allow"              # the legal alternative is offered
+    assert routes.get("HDB-BATH-3YR-OVERLAY") == "escalate"           # overlay facts still need confirmation
 
 
 def test_older_block_bathroom_replacement_needs_a_permit():

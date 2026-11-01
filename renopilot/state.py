@@ -24,10 +24,11 @@ class State(TypedDict, total=False):
     shortlist_types: list[str]                        # item types the planner asked to (re)shortlist
     searched_types: list[str]                         # item types the planner has already sent to shortlist
     redo_types: list[str]                             # item types needing a new search (rejections, budget changes)
-    refinements: dict[str, str]                       # item_type -> extra search words from owner feedback
+    refinements: dict[str, str]                       # request id (legacy: item type) -> extra search words
+    refine_requests: list[str]                        # request ids the owner's latest rejection came from
     steps: int                                        # planner decisions this turn (cap: MAX_PLANNER_STEPS)
     approved: bool                                    # owner has approved the shortlist
-    selected: dict[str, str]                          # item type -> one approved product/offer id
+    selected: dict[str, str]                          # request id (legacy: item type) -> chosen offer id
     approval_error: Optional[str]                     # invalid selection stays at the approval gate
     pricing_enabled: bool                            # False only for the explicit pricing ablation
     trace: Annotated[list[dict], operator.add]        # compact decision log: {"node", "action", "why"}

@@ -60,14 +60,17 @@ def castlery_fee(order_total: Decimal, rules: PricingRules) -> tuple[Decimal, st
     return money(d["tiers"][-1][1]), "Castlery standard delivery"
 
 
+def ikea_load(p: Product, rules: PricingRules) -> tuple[float, float, bool]:
+    typical = rules.typical(p.item_type)
+    known = dims_cm(p.dims)
+    return (p.weight_kg if p.weight_kg is not None else typical["weight_kg"],
+            max(known) if known else typical["longest_cm"], p.weight_kg is None or not known)
+
+
 def local_delivery(p: Product, item_sgd: Decimal, rules: PricingRules) -> tuple[Decimal, str, list[str], bool]:
     """(fee, label, assumptions, estimated) for buying this one item alone."""
     if p.source == "ikea_sg":
-        t = rules.typical(p.item_type)
-        known = dims_cm(p.dims)
-        weight = p.weight_kg if p.weight_kg is not None else t["weight_kg"]
-        longest = max(known) if known else t["longest_cm"]
-        estimated = p.weight_kg is None or not known
+        weight, longest, estimated = ikea_load(p, rules)
         fee, label = ikea_fee(weight, longest, rules)
         notes = [f"IKEA delivery tier from typical {p.item_type.replace('_', ' ')} size/weight"] if estimated else []
         return fee, label, notes, estimated
@@ -147,18 +150,20 @@ def landed_cost(p: Product, rules: PricingRules | None = None, fx: FxProvider | 
         lines.append(PriceLine(label="GST", amount_sgd=float(gst), note=gnote))
 
     total = item + shipping + delivery + gst
+    load = ikea_load(p, rules) if p.source == "ikea_sg" and p.ships_by in (None, "local") else None
     return PriceQuote(listed=float(p.price), currency=currency, fx_rate=rate.rate, fx_date=rate.rate_date,
                       fx_stale=rate.stale, item_sgd=float(item), shipping_sgd=float(shipping),
                       local_delivery_sgd=float(delivery), gst_sgd=float(gst), gst_basis=basis,
                       total_sgd=float(total), lines=lines, assumptions=list(dict.fromkeys(assumptions)),
-                      estimated=estimated, synthetic=p.synthetic)
+                      estimated=estimated, synthetic=p.synthetic,
+                      delivery_weight_kg=load[0] if load else None, delivery_longest_cm=load[1] if load else None)
 
 
 # --------------------------------------------------------------------------- baskets
 @trace.tool("basket_total", inputs=("items",))
 def basket_total(items: list[tuple[str, PriceQuote]], rules: PricingRules | None = None) -> dict:
     """Total for buying several items: each LOCAL retailer's delivery fee is charged once per
-    order (Castlery's tier is re-read on the order total; IKEA takes the largest single fee)."""
+    order (Castlery's tier uses the order total; IKEA uses combined weight and longest item)."""
     rules = rules or load_rules()
     goods = money(0)
     by_source: dict[str, list[PriceQuote]] = {}
@@ -169,6 +174,9 @@ def basket_total(items: list[tuple[str, PriceQuote]], rules: PricingRules | None
     for source, qs in by_source.items():
         if source == "castlery":
             delivery[source], _ = castlery_fee(sum((money(q.item_sgd) for q in qs), money(0)), rules)
+        elif source == "ikea_sg" and all(q.delivery_weight_kg is not None and q.delivery_longest_cm is not None for q in qs):
+            delivery[source], _ = ikea_fee(sum(q.delivery_weight_kg for q in qs),
+                                           max(q.delivery_longest_cm for q in qs), rules)
         elif source in LOCAL_SOURCES:
             delivery[source] = max(money(q.local_delivery_sgd) for q in qs)
         else:

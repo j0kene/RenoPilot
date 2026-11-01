@@ -22,8 +22,8 @@ from renopilot.schemas import ProjectProfile
 INTAKE_SYSTEM = """Extract the homeowner's project details from their message into the schema.
 Budgets are in Singapore dollars. budget_by_category maps an item type (e.g. sofa, coffee_table,
 dining_table, bed_frame, rug) to the most they will pay for ONE such item.
-completion_date is the date their HDB block was completed (keys collected); if only a month and year
-are given, use the 1st of that month.
+completion_date is the exact date the HDB block was completed. Never infer it from key collection,
+occupation, or a month-only date. If no exact date is stated, leave it empty.
 Leave a field empty if the message does not state it. Never guess numbers or dates."""
 
 Parser = Callable[[str], "ProjectProfile | None"]
@@ -58,16 +58,13 @@ def merge(form: ProjectProfile | None, parsed: ProjectProfile | None, brief: str
         return form.model_copy(update={"notes": form.notes or brief})
     return form.model_copy(update={
         "flat_type": form.flat_type or parsed.flat_type,
-        "completion_date": form.completion_date or parsed.completion_date,
+        # Dates in free text (including model-derived dates) are notes, not confirmed age data.
+        # Only the structured owner field on `form` can supply the exact completion date.
+        "completion_date": form.completion_date,
         "total_budget": form.total_budget if form.total_budget is not None else parsed.total_budget,
         "budget_by_category": {**parsed.budget_by_category, **form.budget_by_category},
         "notes": form.notes or brief,
     })
-
-
-def _needs_parse(form: ProjectProfile | None) -> bool:
-    """Only call the model if the brief could fill something the form left empty."""
-    return form is None or not (form.flat_type and form.completion_date and form.total_budget is not None)
 
 
 def make_intake(parse: Parser | None = None):
@@ -85,7 +82,7 @@ def make_intake(parse: Parser | None = None):
         brief = next((m.content for m in reversed(state.get("messages") or [])
                       if isinstance(m, HumanMessage) and isinstance(m.content, str)), "").strip()
         parsed = None
-        if brief and not (form and form.notes) and _needs_parse(form):   # first turn only: notes mark it read
+        if brief and not (form and form.notes):   # category caps may still be supplied; read the brief once
             try:
                 parsed = reader(brief)
             except Exception as e:                       # noqa: BLE001 - a brief we cannot read is not fatal

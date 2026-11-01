@@ -14,6 +14,7 @@ Pipeline per item type:
 from __future__ import annotations
 
 import contextvars
+from collections import Counter
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -27,14 +28,15 @@ from pydantic import BaseModel, Field, create_model
 from renopilot import config, trace
 from renopilot.catalog.embed import get_embedder
 from renopilot.catalog.search import ALL_SIGNALS, CatalogIndex, Hit
+from renopilot.catalog.fit import fit_note
 from renopilot.llm import get_model, image_block, usage_of
 from renopilot.nodes.guard import request_from
 from renopilot.schemas import ItemSpec, ProjectProfile, StyleProfile, Suggestion
-from renopilot.tools.budget import caps_for, fmt_sgd
+from renopilot.tools.budget import request_caps, fmt_sgd
 from renopilot.vocab import WORK_TYPE_OF
 
 SG_SOURCES = config.SG_SOURCES
-PROMPT_VERSION = "style-v2-room-method"
+PROMPT_VERSION = "style-v3-one-per-type"
 
 EXTRACT_SYSTEM = """You are an interior stylist helping a Singapore BTO flat owner turn a mood board into a shopping list.
 
@@ -54,6 +56,18 @@ Look at ALL the images together and describe the look they share.
   demolish, erect); otherwise unspecified. Never turn demolition into erecting a partition.
   structural: true for a structural/RC wall, false only if explicitly confirmed non-structural;
   otherwise null. Do not infer a wall's structural status from a photo.
+  One entry per furniture, lighting or rug item_type: several board photos of a sofa are one sofa.
+  Add a second entry of a type only when the brief asks for that type in another room.
+  room_label: preserve the owner's room name (e.g. Bedroom 1, Bedroom 2).
+  quantity: the owner's requested count, otherwise 1.
+  max_width_cm/max_depth_cm/max_height_cm: only explicitly stated product size limits, in cm.
+  work_details: only explicitly stated measurements/materials/facts, never inferred from a photo.
+  overlay_thickness_mm includes adhesive; ceiling_clearance_mm is above the finished floor.
+  existing_floor_layers, non_combustible and gas_pipe_enclosed remain null when unknown.
+  Work on a floor, wall, ceiling or partition uses that item_type whatever the method: raising a
+  floor is floor_tiles with work_method raise, even if the method is not allowed.
+  Use other_renovation only when no listed item_type fits (electrical, plumbing, windows, air
+  conditioning), retaining the actual request in its description. Never silently omit it.
 - summary: one sentence describing the look.
 Only describe what you can see. If the images disagree, follow the majority."""
 
@@ -81,7 +95,7 @@ def extract_style_profile(image_paths: list[str], model=None, brief: str = "") -
     content = [{"type": "text", "text": f"Mood board with {len(image_paths)} images:"}]
     if brief:
         content.insert(0, {"type": "text", "text": "The homeowner's brief (include items it asks for, even if not "
-                                                   f"pictured; ignore anything that is not about their home):\n{brief[:600]}"})
+                                                   f"pictured; ignore anything that is not about their home):\n{brief}"})
     content += [image_block(resolve(p)) for p in image_paths]
     t0 = time.perf_counter()
     out = model.with_structured_output(StyleProfile, include_raw=True).invoke(
@@ -92,7 +106,8 @@ def extract_style_profile(image_paths: list[str], model=None, brief: str = "") -
               error=str(out["parsing_error"]) if out["parsing_error"] else None)
     if out["parsing_error"] or out["parsed"] is None:
         raise ValueError(f"format_error: style profile did not parse: {out['parsing_error']}")
-    profile: StyleProfile = out["parsed"]
+    profile: StyleProfile = identify_requests(out["parsed"].model_copy(update={"items": [
+        i.model_copy(update={"request_id": ""}) for i in out["parsed"].items]}))
     trace.log("style_extract", "result", style_tags=profile.style_tags, palette=profile.palette,
               items=[i.item_type for i in profile.items])
     return profile, usage
@@ -104,6 +119,15 @@ def query_text(spec: ItemSpec, profile: StyleProfile) -> str:
     words = [spec.description] + [c.replace("_", " ") for c in spec.colours] + \
             [m.replace("_", " ") for m in spec.materials] + [profile.style_tags[0].replace("_", " ")]
     return ", ".join(dict.fromkeys(w for w in words if w))
+
+
+def identify_requests(profile: StyleProfile) -> StyleProfile:
+    """Work and repeated categories get a stable id; single furniture keeps its legacy category key."""
+    counts = Counter(i.item_type for i in profile.items)
+    items = [i.model_copy(update={"request_id": i.request_id or f"{i.item_type}:{n + 1}"})
+             if counts[i.item_type] > 1 or WORK_TYPE_OF[i.item_type] != "loose_furniture" else i
+             for n, i in enumerate(profile.items)]
+    return profile.model_copy(update={"items": items})
 
 
 @lru_cache(maxsize=1)
@@ -157,6 +181,7 @@ def rerank(spec: ItemSpec, profile: StyleProfile, hits: list[Hit], k: int = conf
 # --------------------------------------------------------------------------- 4. shortlist
 def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board_paths: list[str],
                     *, item_types: list[str] | None = None, exclude_ids: set[str] = frozenset(),
+                    exclude_by_request: dict[str, set[str]] | None = None,
                     sources: tuple[str, ...] | None = SG_SOURCES, index: CatalogIndex | None = None,
                     signals: tuple[str, ...] = ALL_SIGNALS, use_rerank: bool = True,
                     picker: str | None = None, shopper_model=None,
@@ -167,10 +192,10 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
     from renopilot.nodes.shopper import shop          # the shopper imports this module
     picker = picker or config.PICKER
     index = index or get_index()
-    specs = list({(s.item_type, s.room, s.work_method) if WORK_TYPE_OF[s.item_type] != "loose_furniture"
-                  else (s.item_type,): s for s in reversed(profile.items)
+    profile = identify_requests(profile)
+    specs = list({s.request_id or (s.item_type, s.room, s.work_method): s for s in reversed(profile.items)
                   if item_types is None or s.item_type in item_types}.values())[::-1]   # one per type, first wins
-    caps = caps_for(project, [s.item_type for s in profile.items if WORK_TYPE_OF[s.item_type] == "loose_furniture"])
+    caps = request_caps(project, [s for s in profile.items if WORK_TYPE_OF[s.item_type] == "loose_furniture"])
     board_emb = (get_embedder(index.embed_spec).images([resolve(b) for b in board_paths])
                  if "board_img" in signals and board_paths else None)
 
@@ -178,42 +203,49 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
     escalations: list[str] = []
     jobs = []
     for spec in specs:
+        excluded = set(exclude_ids) | set((exclude_by_request or {}).get(spec.request_id or spec.item_type, ()))
+        cap = caps.get(spec.request_id or spec.item_type)
         work_type = WORK_TYPE_OF[spec.item_type]
         if work_type != "loose_furniture":
             suggestions.append(request_from(spec))
             continue
         hits = index.search(query_text(spec, profile), item_type=spec.item_type, board_emb=board_emb,
-                            max_price=caps.get(spec.item_type), sources=sources,
-                            exclude_ids=exclude_ids, signals=signals)
-        trace.log("search", "hits", item_type=spec.item_type, cap=caps.get(spec.item_type),
+                            max_price=cap, sources=sources,
+                            exclude_ids=excluded, signals=signals)
+        hits = [h for h in hits if fit_note(h.product, spec)[0] is not False]
+        trace.log("search", "hits", item_type=spec.item_type, cap=cap,
                   n=len(hits), top=[h.product.id for h in hits[:10]])
         if len(hits) < config.MIN_IN_BUDGET:
-            cap = caps.get(spec.item_type)
             escalations.append(
                 f"Only {len(hits)} {spec.item_type.replace('_', ' ')} option(s) match"
                 + (f" under {fmt_sgd(cap)}" if cap is not None else "")
                 + ": relax the budget or the style for this item?")
-        jobs.append((spec, hits))
+        jobs.append((spec, hits, excluded))
 
     def pick(job):
-        spec, hits = job
+        spec, hits, excluded = job
         if not use_rerank:
             return spec, [(h, "Ranked by search") for h in hits[:k]]
         if picker == "react":
-            return spec, shop(spec, profile, index, fallback=hits, cap=caps.get(spec.item_type), sources=sources,
-                              exclude_ids=exclude_ids, board_emb=board_emb, signals=signals, k=k,
+            return spec, shop(spec, profile, index, fallback=hits, cap=caps.get(spec.request_id or spec.item_type), sources=sources,
+                              exclude_ids=excluded, board_emb=board_emb, signals=signals, k=k,
                               model=shopper_model)
         return spec, rerank(spec, profile, hits, k)
 
     with ThreadPoolExecutor(max_workers=max(1, len(jobs))) as pool:   # all item types at once, one CLI process each
         futures = [pool.submit(contextvars.copy_context().run, pick, job) for job in jobs]  # keep the tracer
-        for spec, picked in (f.result() for f in futures):
-            for h, reason in picked:
-                p = h.product
-                suggestions.append(Suggestion(
-                    product_id=p.id, item_type=spec.item_type, work_type="loose_furniture",
-                    title=p.title, reason=reason, score=round(h.score, 5), price_sgd=p.price_sgd,
-                    url=p.url, image_path=p.image_path, room=spec.room, source=p.source))
+    for spec, picked in (f.result() for f in futures):
+        for h, reason in picked:
+            p = h.product
+            fits, note = fit_note(p, spec)
+            if fits is False:
+                continue
+            suggestions.append(Suggestion(
+                request_id=spec.request_id, room_label=spec.room_label, quantity=spec.quantity, fit_note=note,
+                product_id=p.id, item_type=spec.item_type, work_type="loose_furniture",
+                title=p.title, reason=reason, score=round(h.score, 5), price_sgd=p.price_sgd,
+                retrieved_at=p.retrieved_at, dims=p.dims, material=p.material,
+                url=p.url, image_path=p.image_path, room=spec.room, source=p.source))
     return suggestions, escalations
 
 
@@ -230,22 +262,31 @@ def make_shortlist(index: CatalogIndex | None = None, signals: tuple[str, ...] =
     """Factory so the offline demo (renopilot/demo.py) can bring its own catalog and shopper model."""
 
     def shortlist_node(state: dict) -> dict:
-        profile: StyleProfile = state["style_profile"]
+        profile: StyleProfile = identify_requests(state["style_profile"])
         types = state.get("shortlist_types") or [i.item_type for i in profile.items]
         refinements = state.get("refinements") or {}
-        if refinements:                                   # owner feedback becomes extra search words
-            profile = profile.model_copy(update={"items": [
-                i.model_copy(update={"description": f"{i.description}; {refinements[i.item_type]}"})
-                if i.item_type in refinements else i for i in profile.items]})
+        searched = profile.model_copy(update={"items": [           # owner feedback becomes extra search words
+            i.model_copy(update={"description": f"{i.description}; {extra}"})
+            if (extra := refinements.get(i.request_id) or refinements.get(i.item_type)) else i for i in profile.items]})
         # owner and guard rejections are final; a pricing removal is not (a raised budget can bring it back)
-        exclude = {r["product_id"] for r in state.get("rejected") or [] if r.get("product_id") and r.get("by") != "pricing"}
-        new, escalations = build_shortlist(profile, state.get("project"), state.get("board_images") or [],
-                                           item_types=types, exclude_ids=exclude, sources=config.SHORTLIST_SOURCES,
+        exclude = set()
+        exclude_by_request: dict[str, set[str]] = {}
+        for row in state.get("rejected") or []:
+            if not row.get("product_id") or row.get("by") == "pricing":
+                continue
+            request_id = row.get("request_id")
+            if request_id:
+                exclude_by_request.setdefault(request_id, set()).add(row["product_id"])
+            else:
+                exclude.add(row["product_id"])
+        new, escalations = build_shortlist(searched, state.get("project"), state.get("board_images") or [],
+                                           item_types=types, exclude_ids=exclude, exclude_by_request=exclude_by_request,
+                                           sources=config.SHORTLIST_SOURCES,
                                            index=index, signals=signals, shopper_model=shopper_model)
         new_keys = {s.key for s in new}
         kept = [s for s in state.get("suggestions") or [] if s.item_type not in types or
                 (s.status == "rejected" and s.key not in new_keys)]
-        return {"suggestions": kept + new, "escalations": escalations, "open_issues": escalations,
+        return {"style_profile": profile, "suggestions": kept + new, "escalations": escalations, "open_issues": escalations,
                 "redo_types": [t for t in state.get("redo_types") or [] if t not in types], "shortlist_types": [],
                 "trace": [{"node": "shortlist", "action": "searched",
                            "why": f"{len(new)} suggestions for {types}; {len(escalations)} escalations"}]}

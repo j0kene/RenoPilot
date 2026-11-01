@@ -106,7 +106,7 @@ and the final report includes Precision@5 (target ≥0.60), five-run reliability
 ## 4. Independently verify HDB cards and compliance gold answers
 
 **Owner:** the compliance workstream member; ask HDB or a suitably qualified practitioner when the
-source does not resolve a technical condition. **Scope:** all 22 rule cards, 50 QA cases and 20
+source does not resolve a technical condition. **Scope:** all 22 rule cards, 55 QA cases and 20
 adversarial request cases. Prompt-injection cases also need a check that they test genuine attacks.
 
 Use `data/labels/compliance_review.csv` to record the reviewer, review date, confirmed status and

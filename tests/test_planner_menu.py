@@ -3,7 +3,7 @@ from langgraph.types import Command
 
 from renopilot import config
 from renopilot.nodes.planner import Decision, _briefing, check_action, fixed_policy, llm_decide, make_planner
-from renopilot.schemas import Suggestion
+from renopilot.schemas import ItemSpec, StyleProfile, Suggestion
 from tests.fakes import PROFILE, ScriptedPlanner
 
 
@@ -68,6 +68,16 @@ def test_legal_llm_decision_is_used_including_refinement():
     out = make_planner("llm", model=fake)({"style_profile": PROFILE, "suggestions": s, "redo_types": ["sofa"]})
     assert isinstance(out, Command) and out.goto == "shortlist"
     assert out.update["refinements"] == {"sofa": "darker walnut, slimmer arms"}
+
+
+def test_refinement_targets_only_the_rejected_request():
+    items = [ItemSpec(request_id=key, item_type="sofa", description="sofa", room="bedroom") for key in ("bed-1", "bed-2")]
+    board = StyleProfile(style_tags=["japandi"], palette=["beige"], summary="x", items=items)
+    s = [Suggestion(request_id="bed-1", product_id="x", item_type="sofa", work_type="loose_furniture", status="rejected")]
+    fake = ScriptedPlanner([{"action": "shortlist", "item_types": ["sofa"], "refinement": "narrower", "why": "owner"}])
+    out = make_planner("llm", model=fake)({"style_profile": board, "suggestions": s, "redo_types": ["sofa"],
+                                           "refine_requests": ["bed-1"]})
+    assert out.update["refinements"] == {"bed-1": "narrower"}
 
 
 def test_unparseable_reply_falls_back():

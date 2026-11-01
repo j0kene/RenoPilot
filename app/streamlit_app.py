@@ -15,6 +15,7 @@ import sys
 import time
 from datetime import date
 from pathlib import Path
+from uuid import uuid4
 
 import streamlit as st
 
@@ -23,16 +24,17 @@ from langchain_core.messages import HumanMessage  # noqa: E402
 from langgraph.types import Command  # noqa: E402
 
 from renopilot import config, trace  # noqa: E402
-from renopilot.basket import offers_for, selection, summary  # noqa: E402
+from renopilot.basket import offers_for, selection, summary, work_totals  # noqa: E402
 from renopilot.catalog.embed import slug  # noqa: E402
 from renopilot.compliance import PLAIN  # noqa: E402
 from renopilot.demo import DEMO_BOARD, demo_nodes  # noqa: E402
 from renopilot.graph import build_graph  # noqa: E402
-from renopilot.nodes.guard import blocked  # noqa: E402
+from renopilot.nodes.guard import blocked, request_from  # noqa: E402
+from renopilot.nodes.approval import apply_routes  # noqa: E402
 from renopilot.nodes.respond import shopping_list_csv  # noqa: E402
-from renopilot.schemas import ProjectProfile  # noqa: E402
+from renopilot.schemas import ProjectProfile, ItemSpec, WorkEstimate  # noqa: E402
 from renopilot.tools.budget import fmt_sgd  # noqa: E402
-from renopilot.vocab import LOOSE_FURNITURE  # noqa: E402
+from renopilot.vocab import LOOSE_FURNITURE, WORK_TYPE_OF, ITEM_TYPES, ROOMS  # noqa: E402
 
 st.set_page_config(page_title="RenoPilot demo", page_icon="🛋️", layout="wide")
 IMG_EXT = {".jpg", ".jpeg", ".png", ".webp"}
@@ -157,6 +159,116 @@ def show_blocked(items: list[dict]) -> None:
                     f"{b['reason']}{alt}") + f" [{b['rule_id']}]({b['citation']})")
 
 
+def work_cost_summary(project, suggestions, furniture_total):
+    costs = work_totals(project, suggestions)
+    st.metric("Priced works subtotal", fmt_sgd(costs["subtotal_sgd"]))
+    if costs["complete"] and costs["remaining_sgd"] is not None:
+        st.caption(md(f"Works budget remaining: {fmt_sgd(costs['remaining_sgd'])}"))
+    label = "Combined project estimate" if costs["complete"] else "Combined priced subtotal · incomplete"
+    st.metric(label, fmt_sgd(furniture_total + costs["subtotal_sgd"]))
+    if not costs["complete"]:
+        st.warning("Work estimates are incomplete: " + "; ".join(costs["missing_requests"] + costs["unpriced_rows"]) +
+                   ". Enter a rate, source and quote date for each cost line.")
+
+
+def edit_requests(profile):
+    with st.expander("Edit requested items and work facts"):
+        specs = {i.request_id or request_from(i).key: i for i in profile.items}
+        key = st.selectbox("Request to edit", list(specs),
+            format_func=lambda k: f"{specs[k].room_label or specs[k].room or 'Room unknown'} · {specs[k].description}")
+        spec = specs[key]
+        with st.form(f"edit_request_{key}"):
+            description = st.text_input("Request description", spec.description)
+            room = st.selectbox("Room", [None, *ROOMS], index=[None, *ROOMS].index(spec.room),
+                                format_func=lambda r: "Unknown" if r is None else r.replace("_", " "))
+            room_label = st.text_input("Room name", spec.room_label, placeholder="e.g. Bedroom 2")
+            quantity = st.number_input("Quantity", min_value=1, max_value=100, value=spec.quantity, step=1)
+            patch = {"description": description, "room": room, "room_label": room_label, "quantity": quantity}
+            if WORK_TYPE_OF[spec.item_type] == "loose_furniture":
+                for axis in ("width", "depth", "height"):
+                    field = f"max_{axis}_cm"
+                    patch[field] = st.number_input(f"Maximum {axis} (cm, optional)", min_value=0.1,
+                                                  value=getattr(spec, field), step=1.0)
+            else:
+                methods = ["unspecified", "overlay", "replace", "raise", "demolish", "erect"]
+                patch["work_method"] = st.selectbox("Requested method", methods, index=methods.index(spec.work_method))
+                if spec.item_type == "partition_wall_change":
+                    patch["structural"] = st.selectbox("Structural wall?", [None, True, False],
+                        index=[None, True, False].index(spec.structural),
+                        format_func=lambda x: "Unknown" if x is None else "Yes" if x else "Confirmed non-structural")
+                facts = spec.work_details.model_dump()
+                if spec.item_type in ("floor_tiles", "wall_tiles", "bathroom_finishes", "timber_flooring"):
+                    facts["overlay_thickness_mm"] = st.number_input("New overlay including adhesive (mm)",
+                        min_value=0.0, value=facts["overlay_thickness_mm"], step=1.0)
+                    if spec.item_type != "wall_tiles":
+                        facts["existing_floor_layers"] = st.number_input("Existing floor-finish layers", min_value=0,
+                            value=facts["existing_floor_layers"], step=1)
+                if spec.item_type == "false_ceiling":
+                    facts["ceiling_clearance_mm"] = st.number_input("Clearance above finished floor (mm)",
+                        min_value=0.0, value=facts["ceiling_clearance_mm"], step=10.0)
+                    for field, label in (("non_combustible", "Non-combustible material?"),
+                                         ("gas_pipe_enclosed", "Will a gas pipe be enclosed?")):
+                        facts[field] = st.selectbox(label, [None, True, False], index=[None, True, False].index(facts[field]),
+                            format_func=lambda x: "Unknown" if x is None else "Yes" if x else "No")
+                if spec.item_type == "partition_wall_change":
+                    materials = [None, "hollow_block", "glass_block", "gypsum", "plywood", "plastic", "asbestos", "other"]
+                    facts["partition_material"] = st.selectbox("Partition material", materials,
+                        index=materials.index(facts["partition_material"]),
+                        format_func=lambda m: "Unknown" if m is None else m.replace("_", " "))
+                patch["work_details"] = facts
+            if st.form_submit_button("Save request and recheck"):
+                try:
+                    ItemSpec.model_validate(spec.model_dump() | patch)
+                except ValueError as e:
+                    st.error(str(e))
+                else:
+                    run(Command(resume={"work_updates": {key: patch}}))
+                    st.rerun()
+    with st.expander("Add a missing request"):
+        with st.form("add_request"):
+            item_type = st.selectbox("Item or work type", ITEM_TYPES)
+            description = st.text_input("What is needed?")
+            room = st.selectbox("Room for the new request", [None, *ROOMS],
+                format_func=lambda r: "Unknown" if r is None else r.replace("_", " "))
+            if st.form_submit_button("Add request"):
+                if description.strip():
+                    run(Command(resume={"add_requests": [{"item_type": item_type,
+                        "description": description.strip(), "room": room}]}))
+                    st.rerun()
+                else:
+                    st.error("Describe the item or work you need.")
+
+
+def edit_work_costs(project, suggestions):
+    with st.expander("Works budget and estimates"):
+        st.caption("Enter owner or contractor estimates, including labour, installation and contingency as separate lines. "
+                   "Each quoted work needs a source and date. Unpriced work remains incomplete.")
+        rows = [r.model_dump() for r in work_totals(project, suggestions)["rows"]]
+        for s in suggestions:
+            if not s.product_id and s.status != "rejected" and not any(r["request_id"] == s.key for r in rows):
+                rows.append(WorkEstimate(request_id=s.key, description=s.title).model_dump())
+        if not rows:
+            rows = [WorkEstimate(description="").model_dump()]
+        with st.form("work_costs"):
+            budget = st.number_input("Works budget (SGD, optional)", min_value=0.0, value=project.works_budget, step=100.0)
+            edited = st.data_editor(rows, num_rows="dynamic", hide_index=True, disabled=["request_id"], key="work_estimate_rows",
+                column_config={"unit_rate_sgd": st.column_config.NumberColumn("Rate SGD", min_value=0),
+                    "quantity": st.column_config.NumberColumn("Quantity", min_value=0.01),
+                    "checked_at": st.column_config.DateColumn("Quote date"),
+                    "request_id": st.column_config.TextColumn("Work reference"),
+                    "source": st.column_config.TextColumn("Quote source")})
+            if st.form_submit_button("Save work estimates"):
+                try:
+                    records = edited.to_dict("records") if hasattr(edited, "to_dict") else edited
+                    estimates = [WorkEstimate.model_validate({k: v for k, v in r.items() if v is not None}).model_dump(mode="json") for r in records
+                                 if str(r.get("description") or "").strip()]
+                except (ValueError, TypeError) as e:
+                    st.error(str(e))
+                else:
+                    run(Command(resume={"works_budget": budget, "work_estimates": estimates}))
+                    st.rerun()
+
+
 # --------------------------------------------------------------------------- session
 def reset(planner: str, mode: str) -> None:
     st.session_state.planner, st.session_state.mode = planner, mode
@@ -177,6 +289,9 @@ st.session_state.setdefault("flow", {})                  # sessions started befo
 def run(payload) -> None:
     """Stream the graph until it finishes or parks at an interrupt, lighting up each node as it runs."""
     g, cfg, flow = st.session_state.graph, st.session_state.cfg, st.session_state.flow
+    if isinstance(payload, Command) and isinstance(payload.resume, dict) and payload.resume.keys() & {"board_images", "notes", "brief"}:
+        for key in [k for k in st.session_state if k.startswith(("pick_", "rej_", "why_", "route_"))]:
+            del st.session_state[key]
     with st.status("RenoPilot is working...", expanded=True) as status, trace.tracing() as t:
         t0 = time.perf_counter()
         for ns, kind, chunk in g.stream(payload, cfg, stream_mode=["tasks", "updates"], subgraphs=True):
@@ -247,27 +362,29 @@ with st.sidebar:
             up = config.CACHE / "uploads" / st.session_state.cfg["configurable"]["thread_id"]
             up.mkdir(parents=True, exist_ok=True)
             for f in files:
-                (up / f.name).write_bytes(f.getbuffer())
-                paths.append(str(up / f.name))
+                dest = up / f"{uuid4().hex}_{Path(f.name).name}"
+                dest.write_bytes(f.getbuffer())
+                paths.append(str(dest))
 
     st.header("2. Your flat & what you'd like")
     FLATS = ["not sure", "2-room", "3-room", "4-room", "5-room", "executive", "other"]
     flat_type = st.selectbox("Flat type", FLATS, index=0, disabled=st.session_state.started)
-    done = st.date_input("Block completion (key collection) date", value=None, format="YYYY-MM-DD",
+    done = st.date_input("Confirmed block completion date", value=None, format="YYYY-MM-DD",
                          min_value=date(1970, 1, 1), max_value=date(date.today().year + 6, 12, 31),
                          disabled=st.session_state.started,
-                         help="From your key collection letter. HDB does not allow bathroom/toilet floor and wall "
-                              "finishes to be replaced for 3 years from the block's completion date. Leave empty if "
-                              "unsure: RenoPilot then shows both the under-3-year and 3-year-plus routes.")
+                         help="Use the actual block completion date, which may differ from key collection. "
+                              "Leave empty if unknown; age-dependent work then stays pending.")
     brief = st.text_area("What would you like? (optional)", height=110, disabled=st.session_state.started,
                          placeholder="e.g. 4-room, keys in June 2024. Warm Japandi living room, sofa under $1,500. "
                                      "We'd also like to redo the bathroom floor tiles.",
-                         help="In your own words. Budgets, the flat type or a completion date typed here fill in "
-                              "anything the fields above leave empty (the fields always win).")
+                         help="Budgets and flat type can fill empty fields. Confirm the block completion date "
+                              "in its date field; dates in this brief remain unconfirmed.")
 
     st.header("3. Budget (SGD)")
     total = st.number_input("Total furniture budget", min_value=0, value=6000, step=500,
                             disabled=st.session_state.started)
+    works_budget = st.number_input("Renovation works budget (optional)", min_value=0.0, value=None,
+                                   step=1000.0, disabled=st.session_state.started)
     caps = {}
     with st.expander("Per-item caps (optional)"):
         for t in st.multiselect("Item types", LOOSE_FURNITURE, default=["sofa", "coffee_table"],
@@ -310,7 +427,7 @@ if go:
     if (planner, mode) != (st.session_state.planner, st.session_state.mode):
         reset(planner, mode)
     st.session_state.started = True
-    form = ProjectProfile(total_budget=total, budget_by_category=caps, completion_date=done,
+    form = ProjectProfile(total_budget=total, budget_by_category=caps, completion_date=done, works_budget=works_budget,
                           flat_type=None if flat_type == "not sure" else flat_type)
     run({"board_images": paths, "project": form,
          "messages": [HumanMessage(brief.strip())] if brief.strip() else []})
@@ -334,7 +451,7 @@ if project:
             bits.append(f"bathroom finishes can be replaced from {unlock:%d %b %Y}" if unlock > date.today()
                         else "past the 3-year bathroom restriction")
         else:
-            bits.append("completion date not given: both bathroom routes (under / over 3 years) are shown")
+            bits.append("completion date unconfirmed: age-dependent work stays pending")
         if project.total_budget:
             bits.append(f"furniture budget {fmt_sgd(project.total_budget)}")
         st.markdown(md(" · ".join(bits)))
@@ -381,17 +498,44 @@ if gate and gate["type"] == "question":
                 if more and mode == LIVE:
                     up = config.CACHE / "uploads" / st.session_state.cfg["configurable"]["thread_id"]
                     up.mkdir(parents=True, exist_ok=True)
+                    added_paths = []
                     for f in more:
-                        (up / f.name).write_bytes(f.getbuffer())
-                    resume["board_images"] = list(state.get("board_images") or []) + [str(up / f.name) for f in more]
+                        dest = up / f"{uuid4().hex}_{Path(f.name).name}"
+                        dest.write_bytes(f.getbuffer())
+                        added_paths.append(str(dest))
+                    resume["board_images"] = list(state.get("board_images") or []) + added_paths
                 run(Command(resume=resume))
                 st.rerun()
 
 elif gate and gate["type"] == "approval":
     st.subheader("Choose your shopping list")
-    st.caption("Pick one offer per furniture category. Work awaiting clarification stays pending.")
+    st.caption("Pick one offer per requested item and room. Quantities apply to the total. "
+               "Work with unverified conditions stays pending; reviewing this list does not authorise work to start.")
     if gate.get("error"):
         st.error(md(gate["error"]))
+    if profile and profile.items:
+        edit_requests(profile)
+    edit_work_costs(project, state.get("suggestions") or [])
+    with st.expander("Replace the brief or mood board"):
+        with st.form("replace_inputs"):
+            replacement_brief = st.text_area("Replacement brief", value=project.notes)
+            replacement_images = st.file_uploader("Replacement images", type=["jpg", "jpeg", "png", "webp"],
+                accept_multiple_files=True, disabled=mode != LIVE)
+            st.caption("Replacing inputs rebuilds the shortlist and clears previous selections, approvals and work estimates. "
+                       "Budgets in this text are not read: change them under Update budgets or completion date.")
+            if st.form_submit_button("Rebuild from these inputs"):
+                changes = {"notes": replacement_brief}
+                if replacement_images and mode == LIVE:
+                    up = config.CACHE / "uploads" / st.session_state.cfg["configurable"]["thread_id"]
+                    up.mkdir(parents=True, exist_ok=True)
+                    new_paths = []
+                    for f in replacement_images:
+                        dest = up / f"{uuid4().hex}_{Path(f.name).name}"
+                        dest.write_bytes(f.getbuffer())
+                        new_paths.append(str(dest))
+                    changes["board_images"] = new_paths
+                run(Command(resume=changes))
+                st.rerun()
     with st.expander("Update budgets or completion date"):
         with st.form("update_project"):
             update_total = st.number_input("New overall budget (SGD)", min_value=0.0, value=None, step=100.0)
@@ -433,9 +577,11 @@ elif gate and gate["type"] == "approval":
     with st.container():
         by_type: dict[str, list[dict]] = {}
         for c in gate["suggestions"]:
-            by_type.setdefault(c["item_type"], []).append(c)
+            by_type.setdefault(c.get("selection_key", c["item_type"]), []).append(c)
         for t, cards in by_type.items():
-            st.markdown(f"#### {t.replace('_', ' ').title()}")
+            category = cards[0]["item_type"].replace("_", " ")
+            room_name = cards[0].get("room_label") or ""
+            st.markdown(f"#### {category.title()}" + (f" · {room_name}" if room_name else ""))
             cols = st.columns(min(len(cards), 5))
             for i, c in enumerate(cards):
                 with cols[i % len(cols)]:
@@ -444,8 +590,12 @@ elif gate and gate["type"] == "approval":
                             picture(c.get("image_path"))
                         st.markdown(f"**{c['title'][:60]}**")
                         if c.get("room"):
-                            st.caption(f"Room: {c['room'].replace('_', ' ')}")
+                            st.caption(f"Room: {c.get('room_label') or c['room'].replace('_', ' ')}")
                         if c["product_id"]:
+                            st.caption(f"Quantity: {c.get('quantity', 1)} · listed prices are per unit")
+                            st.caption(c.get("fit_note") or "Fit not checked: dimensions unavailable.")
+                            st.caption("Catalog captured: " + (c.get("retrieved_at") or "date unknown"))
+                            st.caption("Dimensions: " + (c.get("dims") or "unknown") + " · Material: " + (c.get("material") or "unknown"))
                             if c.get("landed"):
                                 est = " · estimated" if c.get("estimated") else ""
                                 link = f" · [link]({c['url']})" if c.get("url") else ""
@@ -468,8 +618,8 @@ elif gate and gate["type"] == "approval":
                         elif c["verdict"] and c["verdict"] != "allow":
                             st.warning(md(f"{c['verdict']}: {c['verdict_reason']}"))
                         if c["product_id"]:
-                            st.checkbox("Reject", key=f"rej_{c['product_id']}")
-                            st.text_input("Why?", key=f"why_{c['product_id']}", placeholder="e.g. too bulky",
+                            st.checkbox("Reject", key=f"rej_{t}_{c['product_id']}")
+                            st.text_input("Why?", key=f"why_{t}_{c['product_id']}", placeholder="e.g. too bulky",
                                           label_visibility="collapsed")
             if t in offers:
                 by_id = {s.product_id: s for s in offers[t]}
@@ -478,7 +628,7 @@ elif gate and gate["type"] == "approval":
                 pick_key = f"pick_{t}"
                 if st.session_state.get(pick_key) not in ids:
                     st.session_state[pick_key] = default if default in ids else ids[0]
-                selected[t] = st.selectbox(f"Choose one {t.replace('_', ' ')}", ids, key=pick_key,
+                selected[t] = st.selectbox(f"Choose one {category}" + (f" for {room_name}" if room_name else ""), ids, key=pick_key,
                     format_func=lambda pid, items=by_id: f"{items[pid].title} · {fmt_sgd(items[pid].price_quote.total_sgd) if items[pid].price_quote else 'delivered price unavailable'}")
         picks = [next(s for s in offers[t] if s.product_id == pid) for t, pid in selected.items()]
         totals = summary(picks)
@@ -488,9 +638,13 @@ elif gate and gate["type"] == "approval":
         if project.total_budget is not None:
             cols[2].metric("Remaining", fmt_sgd(round(project.total_budget - totals["total_sgd"], 2)))
         st.caption(totals["basis"] + (" · includes estimates" if totals["estimated"] else ""))
+        work_cost_summary(project, state.get("suggestions") or [], totals["total_sgd"])
         invalid = None
+        routes = {c["key"]: st.session_state[f"route_{c['key']}"] for c in gate["suggestions"]
+                  if st.session_state.get(f"route_{c['key']}")}
         try:
-            selection(state.get("suggestions") or [], selected, project)
+            preview = apply_routes(state.get("suggestions") or [], routes, project)
+            selection(preview, selected, project)
         except ValueError as e:
             invalid = str(e)
             st.warning(md(invalid))
@@ -498,10 +652,10 @@ elif gate and gate["type"] == "approval":
         approve = a.button("Approve selected basket", type="primary", width="stretch", disabled=bool(invalid))
         reject = b.button("Submit rejections", width="stretch")
     if approve or reject:
-        rejects = [{"product_id": c["product_id"], "reason": st.session_state.get(f"why_{c['product_id']}", "")}
-                   for c in gate["suggestions"] if c["product_id"] and st.session_state.get(f"rej_{c['product_id']}")]
-        routes = {c["key"]: st.session_state[f"route_{c['key']}"] for c in gate["suggestions"]
-                  if st.session_state.get(f"route_{c['key']}")}
+        rejects = [{"product_id": c["product_id"], "request_id": c.get("request_id", ""),
+                    "reason": st.session_state.get(f"why_{c.get('selection_key', c['item_type'])}_{c['product_id']}", "")}
+                   for c in gate["suggestions"] if c["product_id"] and
+                   st.session_state.get(f"rej_{c.get('selection_key', c['item_type'])}_{c['product_id']}")]
         run(Command(resume=({"approve": "selected", "selected": selected} if approve else {"reject": rejects}) | {"routes": routes}))
         st.rerun()
 
@@ -519,8 +673,15 @@ else:
             if project.total_budget is not None:
                 cols[2].metric("Remaining", fmt_sgd(round(project.total_budget - totals["total_sgd"], 2)))
             st.caption(totals["basis"] + (" · includes estimates" if totals["estimated"] else ""))
+            work_cost_summary(project, state.get("suggestions") or [], totals["total_sgd"])
             st.download_button("Download shopping list (CSV)", shopping_list_csv(state),
                                file_name="renopilot_shopping_list.csv", mime="text/csv")
+            if st.button("Revise this project"):
+                st.session_state.graph.update_state(st.session_state.cfg, {"approved": False,
+                    "suggestions": [s.model_copy(update={"status": "proposed"}) if s.status == "approved" else s
+                                    for s in state.get("suggestions") or []]}, as_node="compliance_guard")
+                run(None)
+                st.rerun()
         show_blocked(blocked(state.get("suggestions")))
         works = [x for x in state.get("suggestions") or [] if not x.product_id and x.status == "approved" and x.verdict]
         if works:
@@ -534,6 +695,8 @@ else:
         for x in state.get("suggestions") or []:
             if not x.product_id and x.status == "proposed" and x.verdict:
                 st.warning(md(f"Pending: {x.title} ({x.room or 'room unknown'}). {x.verdict.reason}"))
+                for condition in x.verdict.conditions:
+                    st.caption(md(condition))
         by_type: dict[str, list] = {}
         for x in state.get("suggestions") or []:
             if x.product_id and x.status == "approved":
@@ -541,11 +704,13 @@ else:
         for t, picks in by_type.items():
             st.markdown(f"#### {t.replace('_', ' ').title()}")
             cols = st.columns(5)
-            for col, x in zip(cols, picks):
-                with col, st.container(border=True):
+            for i, x in enumerate(picks):
+                with cols[i % 5], st.container(border=True):
                     picture(x.image_path)
                     price = f"{fmt_sgd(x.price_quote.total_sgd)} landed" if x.price_quote else fmt_sgd(x.price_sgd)
-                    st.markdown(md(f"**{x.title[:60]}**  \n{price}") + (f" · [link]({x.url})" if x.url else ""))
+                    st.markdown(md(f"**{x.title[:60]}**  \n{x.quantity} × {price}") + (f" · [link]({x.url})" if x.url else ""))
+                    st.caption(x.room_label or x.room or "Room unspecified")
+                    st.caption(x.fit_note or "Fit not checked")
                     st.caption(md(x.reason))
         with st.expander("The reply as text"):
             st.text(msgs[-1].content)

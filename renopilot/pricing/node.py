@@ -16,13 +16,15 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
 from renopilot import config, trace
+from renopilot.basket import category_units, unit_cost
 from renopilot.catalog import store
+from renopilot.catalog.fit import fit_note
 from renopilot.pricing.comparables import MAX_PAIRS_PER_CALL, find_candidates, judge_comparables
 from renopilot.pricing.fx import FxProvider
 from renopilot.pricing.landed_cost import landed_cost
 from renopilot.pricing.rules import load_rules
 from renopilot.schemas import PricedAlternative, Product
-from renopilot.tools.budget import caps_for, fmt_sgd, within
+from renopilot.tools.budget import request_caps, fmt_sgd, within
 from renopilot.vocab import LOOSE_FURNITURE
 
 KEEP_COMPARABLES = 2
@@ -50,6 +52,11 @@ def make_pricing(products: dict[str, Product] | None = None, pool: list[Product]
             idx = get_index()
 
         sugg = list(state.get("suggestions") or [])
+        profile = state.get("style_profile")
+        def spec_for(s):
+            matches = [i for i in profile.items if (i.request_id == s.request_id if s.request_id else
+                       i.item_type == s.item_type and i.room == s.room)] if profile else []
+            return matches[0] if len(matches) == 1 else None
         todo = [i for i, s in enumerate(sugg) if s.status != "rejected" and s.product_id
                 and s.work_type == "loose_furniture" and s.price_quote is None and s.product_id in by_id]
         stale = False
@@ -72,9 +79,11 @@ def make_pricing(products: dict[str, Product] | None = None, pool: list[Product]
                 seen_per_type[s.item_type] = seen_per_type.get(s.item_type, 0) + 1
                 if i in todo and seen_per_type[s.item_type] <= COMPARE_TOP_N:
                     targets.append(i)
-            excluded = {r.get("product_id") for r in state.get("rejected") or [] if r.get("by") != "pricing"}
-            candidates = [p for p in all_products if p.id not in excluded]
-            groups = [(by_id[sugg[i].product_id], find_candidates(by_id[sugg[i].product_id], candidates, idx))
+            def excluded_for(s):
+                return {r.get("product_id") for r in state.get("rejected") or [] if r.get("by") != "pricing"
+                        and (not r.get("request_id") or r["request_id"] == s.request_id)}
+            groups = [(by_id[sugg[i].product_id], find_candidates(by_id[sugg[i].product_id],
+                        [p for p in all_products if p.id not in excluded_for(sugg[i])], idx))
                       for i in targets]
             groups = [g for g in groups if g[1]]
             chunks, cur, n = [], [], 0
@@ -95,38 +104,46 @@ def make_pricing(products: dict[str, Product] | None = None, pool: list[Product]
             for i in todo:
                 alts = []
                 for cand, why in verdicts.get(sugg[i].product_id, []):
+                    if cand.id in excluded_for(sugg[i]):
+                        continue
+                    spec = spec_for(sugg[i])
+                    fits, note = fit_note(cand, spec) if spec else (None, "Fit not checked: size limits unavailable.")
+                    if fits is False:
+                        continue
                     try:
                         cq = landed_cost(cand, rules, fxp)
                     except Exception:                    # noqa: BLE001
                         continue
                     stale |= cq.fx_stale
                     alts.append(PricedAlternative(product_id=cand.id, source=cand.source, title=cand.title,
-                                                  url=cand.url, quote=cq, why_comparable=why, image_path=cand.image_path))
+                                                  url=cand.url, quote=cq, why_comparable=why, image_path=cand.image_path,
+                                                  fit_note=note, retrieved_at=cand.retrieved_at))
                 alts.sort(key=lambda a: a.quote.total_sgd)
                 real = [a for a in alts if not a.quote.synthetic][:KEEP_COMPARABLES]
                 shown = real + [a for a in alts if a.quote.synthetic][:KEEP_ILLUSTRATIONS]
                 sugg[i] = sugg[i].model_copy(update={"comparables": shown})
 
         # ---- budget on landed cost (hard rule)
-        profile = state.get("style_profile")
-        types = [i.item_type for i in profile.items if i.item_type in LOOSE_FURNITURE] if profile else [
-            s.item_type for s in sugg if s.work_type == "loose_furniture"]
-        caps = caps_for(state.get("project"), types)
+        requests = [i for i in profile.items if i.item_type in LOOSE_FURNITURE] if profile else list(
+            {s.selection_key: s for s in sugg if s.work_type == "loose_furniture"}.values())
+        caps = request_caps(state.get("project"), requests)
+        units = category_units(requests)
         removed, types_hit = [], set()
         for i, s in enumerate(sugg):
             q = s.price_quote
-            if s.status == "rejected" or q is None or within(q.total_sgd, caps.get(s.item_type)):
+            if s.status == "rejected" or q is None or within(unit_cost(s, units.get(s.item_type, s.quantity)), caps.get(s.selection_key)):
                 continue
             sugg[i] = s.model_copy(update={"status": "rejected"})
-            types_hit.add(s.item_type)
-            removed.append({"product_id": s.product_id, "item_type": s.item_type, "by": "pricing",
-                            "reason": f"over budget after delivery/shipping/GST: {fmt_sgd(q.total_sgd)} "
-                                      f"> {fmt_sgd(caps[s.item_type])}"})
+            types_hit.add(s.selection_key)
+            removed.append({"product_id": s.product_id, "request_id": s.request_id, "item_type": s.item_type, "by": "pricing",
+                            "reason": f"over budget after delivery/shipping/GST: {fmt_sgd(unit_cost(s, units.get(s.item_type, s.quantity)))} per unit "
+                                      f"> {fmt_sgd(caps[s.selection_key])}"})
         issues = list(state.get("open_issues") or [])
         for t in sorted(types_hit):
-            left = sum(1 for s in sugg if s.item_type == t and s.status != "rejected")
+            left = sum(1 for s in sugg if s.selection_key == t and s.status != "rejected")
             if left < config.MIN_IN_BUDGET:
-                issues.append(f"Only {left} {t.replace('_', ' ')} option(s) stay within {fmt_sgd(caps[t])} once "
+                label = next(s for s in sugg if s.selection_key == t).label
+                issues.append(f"Only {left} {label} option(s) stay within {fmt_sgd(caps[t])} once "
                               "delivery, shipping and GST are added: relax the budget for this item?")
         escalations = ["Exchange rates are more than 24 hours old; overseas prices may have moved."] if stale else []
 

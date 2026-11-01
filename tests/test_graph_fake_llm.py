@@ -37,7 +37,7 @@ def test_happy_path_parks_at_approval_then_responds(tmp_path):
     tiles = next(c for c in gate["suggestions"] if c["item_type"] == "floor_tiles")
     # Unknown method is not silently replaced with the easiest legal one.
     assert tiles["verdict"] == "escalate"
-    assert [r["decision"] for r in tiles["routes"]] == ["allow", "allow_with_permit", "block"]
+    assert [r["decision"] for r in tiles["routes"]] == ["escalate", "allow_with_permit", "block"]
     # the owner will hack out the old tiles instead; a blocked route (raising the floor) is never taken
     final = g.invoke(Command(resume={"approve": "all", "routes": {"floor_tiles": "HDB-FLOOR-REPLACE"}}), cfg)
     assert final["approved"] is True
@@ -45,6 +45,7 @@ def test_happy_path_parks_at_approval_then_responds(tmp_path):
     assert sum(s.status == "approved" for s in final["suggestions"] if s.product_id) == 2
     tiles = next(s for s in final["suggestions"] if s.item_type == "floor_tiles")
     assert tiles.verdict.rule_id == "HDB-FLOOR-REPLACE" and tiles.verdict.decision == "allow_with_permit"
+    assert tiles.status == "proposed"  # selected route still has technical conditions to verify
     assert len(tiles.verdict.options) == 3
 
 

@@ -1,0 +1,1 @@
+{"time": "2026-11-02T00:58:48", "case_id": "cr07", "passed": true, "detail": {"decision": "escalate", "rule_id": "HDB-WALL-DEMOLISH"}, "run_id": "20261102-005845-25b2c0", "cost_usd": 0.008746, "latency_s": 3.045604374987306}

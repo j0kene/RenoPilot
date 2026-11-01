@@ -31,7 +31,7 @@ so the gates stay graph edges: the master can hand over to Compliance (`finalize
 
 | subagent | node(s) | how it works | its tools |
 |---|---|---|---|
-| Style agent | `style_extract`, `shortlist` | one vision call for the profile; then a **shopper** ReAct agent per item type (`nodes/shopper.py`, `PICKER=react`) or one rerank call (`PICKER=rerank`) | `search_catalog`, `product_details`, `landed_price` (+ `Picks` to submit) |
+| Style agent | `style_extract`, `shortlist` | one vision call for the profile; then a **shopper** ReAct agent per item request (`nodes/shopper.py`, `PICKER=react`) or one rerank call (`PICKER=rerank`) | `search_catalog`, `product_details`, `landed_price` (+ `Picks` to submit) |
 | Pricing agent | `pricing` | deterministic, plus a model judge for comparables | `landed_cost`, `find_candidates`, `basket_total` |
 | Compliance | `compliance_guard` | deterministic gate over the HDB rule cards, every suggestion | `hdb_rule_check` |
 
@@ -51,23 +51,30 @@ under an output schema); with `RENOPILOT_BACKEND=openai` it is native. Either wa
 | `product_id`, `title`, `price_sgd`, `url`, `image_path`, `reason`, `score` | Style agent | `product_id=None` for a finish or built-in the board asked for but that isn't a product |
 | `item_type`, `work_type` | Style agent | `work_type` comes from `vocab.WORK_TYPE_OF`: `loose_furniture`, `finish`, `built_in` |
 | `room`, `work_method`, `structural` | Style agent | copied from each `ItemSpec`, independently of the board's overall room; unknown facts stay unknown |
+| `request_id`, `room_label`, `quantity` | Style agent / owner edits | same-category requests remain separate choices; quantity multiplies per-unit offers |
+| `fit_note`, `retrieved_at` | Catalog / fit check | fit uses explicit axis dimensions only; unknown or ambiguous attributes stay unknown, with catalog capture date |
 | `verdict: Verdict` | **Compliance guard** | `decision` = allow / allow_with_permit / block / escalate, plus `reason`, `rule_id`, `alternative`, `citation` |
 | `price_quote: PriceQuote` | **Pricing agent** | landed cost of this item: `item_sgd`, `shipping_sgd`, `local_delivery_sgd` (if bought alone), `gst_sgd`, `gst_basis`, `total_sgd`, `lines`, `assumptions`, `estimated`, `synthetic`, `fx_rate/fx_date/fx_stale` |
 | `comparables: list[PricedAlternative]` | **Pricing agent** | up to 2 real comparable offers at other retailers plus at most 1 illustrative row, each with its own `PriceQuote` and a `why_comparable` |
-| `status` | approval gate | approved for the one chosen offer per category and cleared work; alternatives and unresolved work stay proposed, blocked work stays rejected |
+| `status` | approval gate | approved for the one chosen offer per request; alternatives and unresolved work stay proposed, blocked work stays rejected; work conditions remain visible |
 
-`ProjectProfile` holds `flat_type`, `completion_date` (optional: it narrows the bathroom routes) and the budgets.
-Only the owner (through an interrupt's resume value) can change the budget; no model output can.
-`State.selected` maps furniture categories to one offered product id, including real comparables. The
-server revalidates ids, verdicts, delivered prices, category caps and the complete basket at approval.
-Local delivery is charged once per retailer. Illustrative rows cannot be selected. CSV
-export uses the same chosen items and total. `pricing_enabled=False` is the listed-price ablation only.
+`ProjectProfile` holds `flat_type`, owner-confirmed `completion_date`, furniture budgets, separate
+`works_budget`, and `work_estimates`. Each estimate records description, request id, quantity, unit,
+optional SGD unit rate, source, and checked date. Missing cost or provenance makes works and combined
+project estimates incomplete; an unknown rate is never exported as zero. `State.selected` maps each
+request's `selection_key` (`request_id`, falling back to item type) to one offered product id. The
+server revalidates ids, verdicts, delivered prices, request caps and the complete basket at approval.
+Quantities multiply quoted goods while local delivery is charged once per retailer. Illustrative rows
+cannot be selected. CSV export uses the same selected offers and quantity-aware total.
+`pricing_enabled=False` is the listed-price ablation only.
 
 ## Compliance guard (implemented: `renopilot/nodes/guard.py`)
 
 The rules are 22 cards in `data/compliance/hdb_rules.jsonl`, each quoting the HDB page it rests on
 (`data/compliance/sources.json`, fetched by `data/scripts/fetch_hdb_sources.py`; a test checks every quote
 against the saved page). `compliance.routes(item_type, room, completion_date)` returns the cards that apply.
+The completion date must be explicitly owner-confirmed in a form or structured resume; free-text dates
+remain unconfirmed.
 
 Most finishes can be done more than one way, and HDB treats the ways differently: overlaying floor tiles needs
 no permit, hacking them out needs one, raising the floor is not allowed, and bathroom tiles cannot be replaced in
@@ -80,9 +87,12 @@ route choices use that key. Type-only keys are accepted for unambiguous legacy r
 A prohibited method stays blocked even if a different method is possible. Resume
 `{"alternatives": {blocked_key: rule_id}}` creates a separate proposal and rechecks it through the guard.
 An absent completion date cannot be asserted by choosing an older-block route: age-dependent
-replacement routes escalate until the date is supplied. `ProjectProfile.as_of` freezes the reference
-date for evaluations; ordinary UI runs omit it. Wall demolition requires known structural status,
-and household-shelter restrictions take precedence over general routes.
+replacement routes escalate until the owner confirms the exact block completion date. Work facts can
+be edited at the approval gate. The UI previews route changes with the same `apply_routes` function
+used at approval, which rechecks them through the guard. Unsupported renovation requests use
+`other_renovation` and remain pending for review. `ProjectProfile.as_of` freezes the reference date for
+evaluations; ordinary UI runs omit it. Wall demolition requires known structural status, and
+household-shelter restrictions take precedence over general routes.
 
 | case | verdict |
 |---|---|
@@ -102,7 +112,7 @@ expected labels is separate from automated results; see `docs/HUMAN_HANDOFF.md`.
 | `rules.py` + `data/pricing/rules.json` | GST, low-value-goods / import-relief rules, delivery fee tables, shipping rates, typical sizes; each with source URL and date checked | no |
 | `fx.py` | Frankfurter rates, cached daily; `RENOPILOT_FX=snapshot` uses the frozen `data/pricing/fx_snapshot.json`; stale (> 24 h) is flagged, unknown currency raises | no |
 | `landed_cost.py` | `landed_cost(product) -> PriceQuote`, `basket_total(...)` (delivery once per retailer) | no |
-| `comparables.py` | `find_candidates` (same type, other retailers) + `judge_comparables` (model, ids constrained) + `dims_compatible` (code rule, overrides the model) | judge only |
+| `comparables.py` | `find_candidates` (same type, other retailers) + `judge_comparables` (model, ids constrained) + `dims_compatible` (code rule, overrides the model) | judge only; unknown size/material evidence is called out |
 | `node.py` | `make_pricing(...)` / `pricing`: prices new suggestions, attaches the 2 cheapest real comparables and at most 1 illustration for the top 2 per type, removes items over budget on LANDED cost (`rejected` with `by: "pricing"`), raises an open issue if fewer than 3 remain, warns on stale FX | via comparables |
 
 Overseas listings come from `data/taobao_manual.csv` (loaded by `build_index.py`, not embedded). The current

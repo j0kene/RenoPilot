@@ -12,7 +12,7 @@ from renopilot.demo import demo_index
 from renopilot.nodes.guard import compliance_guard, verdict_for
 from renopilot.nodes.planner import make_planner
 from renopilot.nodes.style import build_shortlist
-from renopilot.schemas import ItemSpec, ProjectProfile, Suggestion
+from renopilot.schemas import ItemSpec, ProjectProfile, Suggestion, WorkDetails
 from tests.fakes import PROFILE, ScriptedPlanner
 
 BOARD = [str(p) for p in sorted((config.BOARDS / "japandi_01").glob("*.jpg"))]
@@ -74,7 +74,7 @@ def test_blocked_work_gets_a_separate_owner_chosen_and_rechecked_alternative():
         result = original(state)
         result["style_profile"] = result["style_profile"].model_copy(update={"items": [
             ItemSpec(item_type="partition_wall_change", room="living", work_method="demolish", structural=True,
-                     description="Remove a structural RC wall")]})
+                     description="Remove a structural RC wall", work_details=WorkDetails(partition_material="gypsum"))]})
         return result
 
     graph = build_graph(nodes=nodes | {"style_extract": extract})

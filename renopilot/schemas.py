@@ -5,6 +5,7 @@ the Compliance guard and the Pricing agent plug in by reading `Suggestion` and f
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -22,6 +23,21 @@ Source = Literal["abo", "ikea_sg", "castlery", "taobao", "other_sg"]
 
 
 # --------------------------------------------------------------------------- the owner
+class WorkEstimate(BaseModel):
+    request_id: str = ""
+    description: str
+    quantity: float = Field(1.0, gt=0, allow_inf_nan=False)
+    unit: str = "job"
+    unit_rate_sgd: Optional[float] = Field(None, ge=0, allow_inf_nan=False)
+    source: str = ""
+    checked_at: Optional[date] = None
+
+    @property
+    def total_sgd(self) -> Optional[float]:
+        return None if self.unit_rate_sgd is None else float((Decimal(str(self.quantity)) *
+            Decimal(str(self.unit_rate_sgd))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
 class ProjectProfile(BaseModel):
     """What the owner tells us once. Budgets are SGD caps per single item of that type."""
     flat_type: Optional[Literal["2-room", "3-room", "4-room", "5-room", "executive", "other"]] = None
@@ -31,10 +47,22 @@ class ProjectProfile(BaseModel):
                                                  description="item_type -> max SGD for one item")
     notes: str = ""
     as_of: Optional[date] = Field(None, description="Evaluation date; omitted for normal runs")
+    works_budget: Optional[float] = Field(None, ge=0, allow_inf_nan=False)
+    work_estimates: list[WorkEstimate] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- the board
+class WorkDetails(BaseModel):
+    overlay_thickness_mm: Optional[float] = Field(None, ge=0, allow_inf_nan=False)
+    existing_floor_layers: Optional[int] = Field(None, ge=0)
+    ceiling_clearance_mm: Optional[float] = Field(None, ge=0, allow_inf_nan=False)
+    non_combustible: Optional[bool] = None
+    gas_pipe_enclosed: Optional[bool] = None
+    partition_material: Optional[Literal["hollow_block", "glass_block", "gypsum", "plywood", "plastic", "asbestos", "other"]] = None
+
+
 class ItemSpec(BaseModel):
+    request_id: str = ""
     item_type: ItemType
     description: str = Field(description="Short visual description, at most 20 words, e.g. "
                                          "'low light-oak coffee table with rounded corners'")
@@ -44,6 +72,12 @@ class ItemSpec(BaseModel):
     room: Optional[Room] = Field(None, description="Room containing THIS item, even on a mixed board; null if unknown")
     work_method: WorkMethod = Field("unspecified", description="Requested renovation method; never substitute a safer method")
     structural: Optional[bool] = Field(None, description="For wall demolition: true for structural/RC, false only if confirmed non-structural")
+    work_details: WorkDetails = Field(default_factory=WorkDetails)
+    room_label: str = Field("", description="Owner's room name, e.g. Bedroom 1 or Bedroom 2")
+    quantity: int = Field(1, ge=1, le=100)
+    max_width_cm: Optional[float] = Field(None, gt=0, allow_inf_nan=False)
+    max_depth_cm: Optional[float] = Field(None, gt=0, allow_inf_nan=False)
+    max_height_cm: Optional[float] = Field(None, gt=0, allow_inf_nan=False)
 
 
 class StyleProfile(BaseModel):
@@ -104,6 +138,8 @@ class PriceQuote(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     estimated: bool = False
     synthetic: bool = False
+    delivery_weight_kg: Optional[float] = None
+    delivery_longest_cm: Optional[float] = None
 
 
 class PricedAlternative(BaseModel):
@@ -114,6 +150,8 @@ class PricedAlternative(BaseModel):
     quote: PriceQuote
     why_comparable: str = ""
     image_path: str = ""
+    fit_note: str = ""
+    retrieved_at: str = ""
 
 
 # --------------------------------------------------------------------------- downstream
@@ -133,6 +171,7 @@ class Verdict(BaseModel):
 
 
 class Suggestion(BaseModel):
+    request_id: str = ""
     product_id: Optional[str] = None        # None for a finish/built-in the board asked for but we don't sell
     item_type: ItemType
     work_type: WorkType
@@ -150,8 +189,23 @@ class Suggestion(BaseModel):
     work_method: WorkMethod = "unspecified"
     structural: Optional[bool] = None
     source: Optional[Source] = None
+    room_label: str = ""
+    quantity: int = Field(1, ge=1, le=100)
+    work_details: WorkDetails = Field(default_factory=WorkDetails)
+    fit_note: str = ""
+    retrieved_at: str = ""
+    dims: str = ""
+    material: str = ""
 
     @property
     def key(self) -> str:
         """Independent choices for, e.g., living-room and bathroom floor tiles."""
-        return self.product_id or f"{self.item_type}:{self.room or 'unknown'}:{self.work_method}"
+        return self.product_id or self.request_id or f"{self.item_type}:{self.room or 'unknown'}:{self.work_method}"
+
+    @property
+    def selection_key(self) -> str:
+        return self.request_id or self.item_type
+
+    @property
+    def label(self) -> str:
+        return self.item_type.replace("_", " ") + (f" ({self.room_label})" if self.room_label else "")

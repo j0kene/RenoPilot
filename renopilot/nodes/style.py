@@ -30,13 +30,13 @@ from renopilot.catalog.embed import get_embedder
 from renopilot.catalog.search import ALL_SIGNALS, CatalogIndex, Hit
 from renopilot.catalog.fit import fit_note
 from renopilot.llm import get_model, image_block, usage_of
-from renopilot.nodes.guard import request_from
+from renopilot.nodes.guard import is_floor_raise, request_from
 from renopilot.schemas import ItemSpec, ProjectProfile, StyleProfile, Suggestion
 from renopilot.tools.budget import request_caps, fmt_sgd
 from renopilot.vocab import WORK_TYPE_OF
 
 SG_SOURCES = config.SG_SOURCES
-PROMPT_VERSION = "style-v3-one-per-type"
+PROMPT_VERSION = "style-v4-normalized-requests"
 
 EXTRACT_SYSTEM = """You are an interior stylist helping a Singapore BTO flat owner turn a mood board into a shopping list.
 
@@ -106,10 +106,10 @@ def extract_style_profile(image_paths: list[str], model=None, brief: str = "") -
               error=str(out["parsing_error"]) if out["parsing_error"] else None)
     if out["parsing_error"] or out["parsed"] is None:
         raise ValueError(f"format_error: style profile did not parse: {out['parsing_error']}")
-    profile: StyleProfile = identify_requests(out["parsed"].model_copy(update={"items": [
-        i.model_copy(update={"request_id": ""}) for i in out["parsed"].items]}))
+    profile = identify_requests(normalize_extracted_requests(out["parsed"], brief))
     trace.log("style_extract", "result", style_tags=profile.style_tags, palette=profile.palette,
-              items=[i.item_type for i in profile.items])
+              items=[i.item_type for i in profile.items],
+              requests=[i.model_dump(mode="json") for i in profile.items])
     return profile, usage
 
 
@@ -119,6 +119,39 @@ def query_text(spec: ItemSpec, profile: StyleProfile) -> str:
     words = [spec.description] + [c.replace("_", " ") for c in spec.colours] + \
             [m.replace("_", " ") for m in spec.materials] + [profile.style_tags[0].replace("_", " ")]
     return ", ".join(dict.fromkeys(w for w in words if w))
+
+
+def normalize_extracted_requests(profile: StyleProfile, brief: str = "") -> StyleProfile:
+    """Board photos are style references, not extra purchases. Only the owner's
+    named rooms justify separate furniture requests. Explicit/manual requests
+    bypass this extraction-only boundary and keep their independent identities.
+    """
+    def words(value):
+        return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+    brief_words = " " + words(brief) + " "
+    confirmed = {}
+    for item in profile.items:
+        room = words(item.room_label or item.room or "")
+        if room and room != "mixed" and f" {room} " in brief_words:
+            rooms = confirmed.setdefault(item.item_type, [])
+            if room not in rooms:
+                rooms.append(room)
+    items, seen = [], set()
+    for item in profile.items:
+        item = item.model_copy(update={"request_id": ""})
+        if item.item_type == "other_renovation" and is_floor_raise(item):
+            item = item.model_copy(update={"item_type": "floor_tiles", "work_method": "raise"})
+        if WORK_TYPE_OF[item.item_type] == "loose_furniture":
+            room = words(item.room_label or item.room or "")
+            rooms = confirmed.get(item.item_type, [])
+            confirmed_room = (room if room in rooms else rooms[0]) if len(rooms) > 1 else ""
+            key = (item.item_type, confirmed_room)
+            if key in seen:
+                continue
+            seen.add(key)
+        items.append(item)
+    return profile.model_copy(update={"items": items})
 
 
 def identify_requests(profile: StyleProfile) -> StyleProfile:
@@ -194,7 +227,7 @@ def build_shortlist(profile: StyleProfile, project: ProjectProfile | None, board
     index = index or get_index()
     profile = identify_requests(profile)
     specs = list({s.request_id or (s.item_type, s.room, s.work_method): s for s in reversed(profile.items)
-                  if item_types is None or s.item_type in item_types}.values())[::-1]   # one per type, first wins
+                  if item_types is None or s.item_type in item_types}.values())[::-1]   # one per request identity, first wins
     caps = request_caps(project, [s for s in profile.items if WORK_TYPE_OF[s.item_type] == "loose_furniture"])
     board_emb = (get_embedder(index.embed_spec).images([resolve(b) for b in board_paths])
                  if "board_img" in signals and board_paths else None)

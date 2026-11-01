@@ -193,13 +193,23 @@ def requested_method(s) -> str:
     return "unspecified"
 
 
+def is_floor_raise(s) -> bool:
+    """Recognize explicit floor raising even when intake chose the catch-all type."""
+    text = (getattr(s, "description", None) or s.title).lower()
+    return requested_method(s) == "raise" and bool(re.search(
+        r"\brais(?:e|ing|ed)\s+(?:(?:the|existing|finished|bathroom|living|room)\s+){0,4}floor(?:ing)?\b|"
+        r"\bfloor(?:ing)?(?:\s+level)?\s+(?:(?:is|to|be)\s+){0,3}rais(?:e|ing|ed)\b|"
+        r"\b(?:floor\s+platform|platform\s+floor)\b", text))
+
+
 @trace.tool("hdb_rule_check", inputs=("s", "project", "room"))
 def verdict_for(s: Suggestion, project: ProjectProfile | None, room: str | None = None) -> Verdict:
     if WORK_TYPE_OF[s.item_type] == "loose_furniture":
         return Verdict(decision="allow", reason="Loose furniture: no HDB approval needed.")
     room = s.room or (IMPLIED_ROOM.get(s.item_type) if room in (None, "mixed") else room)
     completed = project.completion_date if project else None
-    cards = routes(s.item_type, room, completed, as_of=project.as_of if project else None) or [rule("HDB-NOT-LISTED")]
+    rule_type = "floor_tiles" if s.item_type == "other_renovation" and is_floor_raise(s) else s.item_type
+    cards = routes(rule_type, room, completed, as_of=project.as_of if project else None) or [rule("HDB-NOT-LISTED")]
     options = [_verdict(c) for c in cards]
     method = requested_method(s)
     if room == "household_shelter":

@@ -132,7 +132,9 @@ def test_affordable_quantity_basket_survives_pricing_and_approval():
     assert selection(checked, {"chairs": chair.id}, project)[1]["total_sgd"] == 435
 
 
-def test_refinement_stays_on_the_rejected_request_and_out_of_the_saved_profile():
+def test_refinement_stays_on_the_rejected_request_and_out_of_the_saved_profile(monkeypatch):
+    # This test checks request-scoped query text, not the live shopper.
+    monkeypatch.setattr("renopilot.nodes.shopper.shop", lambda *args, **kwargs: [])
     class Index:
         embed_spec = "fake"
         queries = []

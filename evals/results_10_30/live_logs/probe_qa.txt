@@ -1,0 +1,57 @@
+Live model evaluation
+  [qa (live)] run 1/1 cq01: PASS
+  [qa (live)] run 1/1 cq02: PASS
+  [qa (live)] run 1/1 cq03: PASS
+  [qa (live)] run 1/1 cq04: PASS
+  [qa (live)] run 1/1 cq05: PASS
+  [qa (live)] run 1/1 cq06: PASS
+  [qa (live)] run 1/1 cq07: PASS
+  [qa (live)] run 1/1 cq08: PASS
+  [qa (live)] run 1/1 cq09: PASS
+  [qa (live)] run 1/1 cq10: PASS
+  [qa (live)] run 1/1 cq11: PASS
+  [qa (live)] run 1/1 cq12: PASS
+  [qa (live)] run 1/1 cq13: PASS
+  [qa (live)] run 1/1 cq14: PASS
+  [qa (live)] run 1/1 cq15: PASS
+  [qa (live)] run 1/1 cq16: PASS
+  [qa (live)] run 1/1 cq17: PASS
+  [qa (live)] run 1/1 cq18: PASS
+  [qa (live)] run 1/1 cq19: PASS
+  [qa (live)] run 1/1 cq20: PASS
+  [qa (live)] run 1/1 cq21: PASS
+  [qa (live)] run 1/1 cq22: PASS
+  [qa (live)] run 1/1 cq23: PASS
+  [qa (live)] run 1/1 cq24: PASS
+  [qa (live)] run 1/1 cq25: PASS
+  [qa (live)] run 1/1 cq26: PASS
+  [qa (live)] run 1/1 cq27: PASS
+  [qa (live)] run 1/1 cq28: PASS
+  [qa (live)] run 1/1 cq29: PASS
+  [qa (live)] run 1/1 cq30: PASS
+  [qa (live)] run 1/1 cq31: PASS
+  [qa (live)] run 1/1 cq32: PASS
+  [qa (live)] run 1/1 cq33: PASS
+  [qa (live)] run 1/1 cq34: PASS
+  [qa (live)] run 1/1 cq35: PASS
+  [qa (live)] run 1/1 cq36: PASS
+  [qa (live)] run 1/1 cq37: PASS
+  [qa (live)] run 1/1 cq38: PASS
+  [qa (live)] run 1/1 cq39: PASS
+  [qa (live)] run 1/1 cq40: PASS
+  [qa (live)] run 1/1 cq41: PASS
+  [qa (live)] run 1/1 cq42: PASS
+  [qa (live)] run 1/1 cq43: PASS
+  [qa (live)] run 1/1 cq44: PASS
+  [qa (live)] run 1/1 cq45: PASS
+  [qa (live)] run 1/1 cq46: PASS
+  [qa (live)] run 1/1 cq47: PASS
+  [qa (live)] run 1/1 cq48: PASS
+  [qa (live)] run 1/1 cq49: PASS
+  [qa (live)] run 1/1 cq50: PASS
+=== qa (live) ===
+pass rate     100.0%  (sd 0.0% over 1 runs; 95% CI over cases 100.0%-100.0%)
+pass^1        100.0%   pass@1 100.0%
+cost/task     $0.0000 (API-equivalent)
+latency/task  4.10s
+failure clusters:

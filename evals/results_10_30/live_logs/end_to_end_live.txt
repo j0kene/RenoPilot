@@ -1,0 +1,67 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  [e2e (live)] run 1/5 e02: PASS
+  [e2e (live)] run 1/5 e03: PASS
+  [e2e (live)] run 1/5 e04: FAIL
+  [e2e (live)] run 1/5 e05: FAIL
+  [e2e (live)] run 1/5 e06: FAIL
+  [e2e (live)] run 1/5 e07: FAIL
+  [e2e (live)] run 1/5 e08: PASS
+  [e2e (live)] run 1/5 e09: PASS
+  [e2e (live)] run 1/5 e10: PASS
+  [e2e (live)] run 2/5 e01: PASS
+  [e2e (live)] run 2/5 e02: PASS
+  [e2e (live)] run 2/5 e03: PASS
+  [e2e (live)] run 2/5 e04: FAIL
+  [e2e (live)] run 2/5 e05: FAIL
+  [e2e (live)] run 2/5 e06: FAIL
+  [e2e (live)] run 2/5 e07: FAIL
+  [e2e (live)] run 2/5 e08: PASS
+  [e2e (live)] run 2/5 e09: PASS
+  [e2e (live)] run 2/5 e10: PASS
+  [e2e (live)] run 3/5 e01: PASS
+  [e2e (live)] run 3/5 e02: PASS
+  [e2e (live)] run 3/5 e03: PASS
+  [e2e (live)] run 3/5 e04: FAIL
+  [e2e (live)] run 3/5 e05: FAIL
+  [e2e (live)] run 3/5 e06: PASS
+  [e2e (live)] run 3/5 e07: FAIL
+  [e2e (live)] run 3/5 e08: FAIL
+  [e2e (live)] run 3/5 e09: PASS
+  [e2e (live)] run 3/5 e10: PASS
+  [e2e (live)] run 4/5 e01: PASS
+  [e2e (live)] run 4/5 e02: PASS
+  [e2e (live)] run 4/5 e03: PASS
+  [e2e (live)] run 4/5 e04: FAIL
+  [e2e (live)] run 4/5 e05: FAIL
+  [e2e (live)] run 4/5 e06: PASS
+  [e2e (live)] run 4/5 e07: FAIL
+  [e2e (live)] run 4/5 e08: PASS
+  [e2e (live)] run 4/5 e09: PASS
+  [e2e (live)] run 4/5 e10: PASS
+  [e2e (live)] run 5/5 e01: PASS
+  [e2e (live)] run 5/5 e02: PASS
+  [e2e (live)] run 5/5 e03: PASS
+  [e2e (live)] run 5/5 e04: FAIL
+  [e2e (live)] run 5/5 e05: FAIL
+  [e2e (live)] run 5/5 e06: FAIL
+  [e2e (live)] run 5/5 e07: FAIL
+  [e2e (live)] run 5/5 e08: FAIL
+  [e2e (live)] run 5/5 e09: PASS
+  [e2e (live)] run 5/5 e10: PASS
+=== e2e (live) ===
+pass rate     60.0%  (sd 7.1% over 5 runs; 95% CI over cases 30.0%-86.0%)
+pass^5        50.0%   pass@5 70.0%
+cost/task     $0.4547 (API-equivalent)
+latency/task  90.72s
+flaky cases   e06, e08
+failure clusters:
+  e2e                          5/10 cases failed
+  fail:premature_stop          2/2 cases failed
+  fail:rule_violation          2/2 cases failed
+  Unknown bathroom age         1/1 cases failed
+  New bathroom                 1/1 cases failed
+  Older bathroom               1/1 cases failed
+  fail:retrieval_miss          1/1 cases failed
+  Structural wall              1/1 cases failed
+  Raised floor                 1/1 cases failed

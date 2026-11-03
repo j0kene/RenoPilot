@@ -1,0 +1,22 @@
+  [e2e (live_no_guard)] run 2/2 e06: FAIL
+  [e2e (live_no_guard)] run 2/2 e07: FAIL
+  [e2e (live_no_guard)] run 2/2 e08: FAIL
+=== e2e (live_no_guard) ===
+pass rate     6.2%  (sd 8.8% over 2 runs; 95% CI over cases 0.0%-18.8%)
+pass^2        0.0%   pass@2 12.5%
+violations    1.062  (sd 0.088; 95% CI 0.688-1.312)
+cost/task     $1.3861 (API-equivalent)
+latency/task  168.46s
+flaky cases   e03
+failure clusters:
+  fail:rule_violation          8/8 cases failed
+  e2e                          8/8 cases failed
+  Happy path                   1/1 cases failed
+  Owner rejects sofa           1/1 cases failed
+  Tight cap                    1/1 cases failed
+  Unknown bathroom age         1/1 cases failed
+  fail:under_escalation        1/1 cases failed
+  New bathroom                 1/1 cases failed
+  Older bathroom               1/1 cases failed
+  Structural wall              1/1 cases failed
+  Raised floor                 1/1 cases failed

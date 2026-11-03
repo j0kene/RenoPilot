@@ -1,0 +1,64 @@
+  [planner=llm] run 2/5 g01: PASS
+  [planner=llm] run 2/5 g02: PASS
+  [planner=llm] run 2/5 g03: PASS
+  [planner=llm] run 2/5 g04: PASS
+  [planner=llm] run 2/5 g05: PASS
+  [planner=llm] run 2/5 g06: PASS
+  [planner=llm] run 2/5 g07: PASS
+  [planner=llm] run 2/5 g08: PASS
+  [planner=llm] run 2/5 g09: PASS
+  [planner=llm] run 2/5 g10: PASS
+  [planner=llm] run 2/5 g11: PASS
+  [planner=llm] run 2/5 g12: PASS
+  [planner=llm] run 2/5 g13: PASS
+  [planner=llm] run 2/5 g14: PASS
+  [planner=llm] run 3/5 g01: PASS
+  [planner=llm] run 3/5 g02: PASS
+  [planner=llm] run 3/5 g03: PASS
+  [planner=llm] run 3/5 g04: PASS
+  [planner=llm] run 3/5 g05: PASS
+  [planner=llm] run 3/5 g06: PASS
+  [planner=llm] run 3/5 g07: PASS
+  [planner=llm] run 3/5 g08: PASS
+  [planner=llm] run 3/5 g09: PASS
+  [planner=llm] run 3/5 g10: PASS
+  [planner=llm] run 3/5 g11: PASS
+  [planner=llm] run 3/5 g12: PASS
+  [planner=llm] run 3/5 g13: PASS
+  [planner=llm] run 3/5 g14: PASS
+  [planner=llm] run 4/5 g01: PASS
+  [planner=llm] run 4/5 g02: PASS
+  [planner=llm] run 4/5 g03: PASS
+  [planner=llm] run 4/5 g04: PASS
+  [planner=llm] run 4/5 g05: PASS
+  [planner=llm] run 4/5 g06: PASS
+  [planner=llm] run 4/5 g07: PASS
+  [planner=llm] run 4/5 g08: PASS
+  [planner=llm] run 4/5 g09: PASS
+  [planner=llm] run 4/5 g10: PASS
+  [planner=llm] run 4/5 g11: PASS
+  [planner=llm] run 4/5 g12: PASS
+  [planner=llm] run 4/5 g13: PASS
+  [planner=llm] run 4/5 g14: PASS
+  [planner=llm] run 5/5 g01: PASS
+  [planner=llm] run 5/5 g02: PASS
+  [planner=llm] run 5/5 g03: PASS
+  [planner=llm] run 5/5 g04: PASS
+  [planner=llm] run 5/5 g05: PASS
+  [planner=llm] run 5/5 g06: PASS
+  [planner=llm] run 5/5 g07: PASS
+  [planner=llm] run 5/5 g08: PASS
+  [planner=llm] run 5/5 g09: PASS
+  [planner=llm] run 5/5 g10: PASS
+  [planner=llm] run 5/5 g11: PASS
+  [planner=llm] run 5/5 g12: PASS
+  [planner=llm] run 5/5 g13: PASS
+  [planner=llm] run 5/5 g14: PASS
+
+=== planner=llm ===
+pass rate     100.0%  (sd 0.0% over 5 runs; 95% CI over cases 100.0%-100.0%)
+pass^5        100.0%   pass@5 100.0%
+cost/task     $0.0779 (API-equivalent)
+latency/task  23.73s
+failure clusters:
+

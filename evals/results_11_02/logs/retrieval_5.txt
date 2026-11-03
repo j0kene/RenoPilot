@@ -1,0 +1,247 @@
+50 cases x 5 runs; vision=claude-opus-5-5; embed=ViT-B-16-SigLIP:webli; results -> C:\Users\jolen\Desktop\SMU\MITB\Y2S1\Agentic AI\project\renopilot\evals\results\retrieval_claude-opus-5-5_ViT-B-16-SigLIP.jsonl
+  [retrieval] run 2/5 r01: PASS
+  [retrieval] run 2/5 r02: PASS
+  [retrieval] run 2/5 r03: PASS
+  [retrieval] run 2/5 r04: PASS
+  [retrieval] run 2/5 r05: PASS
+  [retrieval] run 2/5 r06: PASS
+  [retrieval] run 2/5 r07: PASS
+  [retrieval] run 2/5 r08: PASS
+  [retrieval] run 2/5 r09: PASS
+  [retrieval] run 2/5 r10: PASS
+  [retrieval] run 2/5 r11: PASS
+  [retrieval] run 2/5 r12: PASS
+  [retrieval] run 2/5 r13: PASS
+  [retrieval] run 2/5 r14: PASS
+  [retrieval] run 2/5 r15: PASS
+  [retrieval] run 2/5 r16: PASS
+  [retrieval] run 2/5 r17: PASS
+  [retrieval] run 2/5 r18: PASS
+  [retrieval] run 2/5 r19: PASS
+  [retrieval] run 2/5 r20: PASS
+  [retrieval] run 2/5 r21: PASS
+  [retrieval] run 2/5 r22: PASS
+  [retrieval] run 2/5 r23: PASS
+  [retrieval] run 2/5 r24: PASS
+  [retrieval] run 2/5 r25: PASS
+  [retrieval] run 2/5 r26: PASS
+  [retrieval] run 2/5 r27: PASS
+  [retrieval] run 2/5 r28: PASS
+  [retrieval] run 2/5 r29: PASS
+  [retrieval] run 2/5 r30: PASS
+  [retrieval] run 2/5 r31: PASS
+  [retrieval] run 2/5 r32: PASS
+  [retrieval] run 2/5 r33: PASS
+  [retrieval] run 2/5 r34: PASS
+  [retrieval] run 2/5 r35: PASS
+  [retrieval] run 2/5 r36: PASS
+  [retrieval] run 2/5 r37: PASS
+  [retrieval] run 2/5 r38: PASS
+  [retrieval] run 2/5 r39: PASS
+  [retrieval] run 2/5 r40: PASS
+  [retrieval] run 2/5 r41: PASS
+  [retrieval] run 2/5 r42: PASS
+  [retrieval] run 2/5 r43: PASS
+  [retrieval] run 2/5 r44: PASS
+  [retrieval] run 2/5 r45: PASS
+  [retrieval] run 2/5 r46: PASS
+  [retrieval] run 2/5 r47: PASS
+  [retrieval] run 2/5 r48: PASS
+  [retrieval] run 2/5 r49: PASS
+  [retrieval] run 2/5 r50: PASS
+  [retrieval] run 3/5 r01: PASS
+  [retrieval] run 3/5 r02: PASS
+  [retrieval] run 3/5 r03: PASS
+  [retrieval] run 3/5 r04: PASS
+  [retrieval] run 3/5 r05: PASS
+  [retrieval] run 3/5 r06: PASS
+  [retrieval] run 3/5 r07: PASS
+  [retrieval] run 3/5 r08: PASS
+  [retrieval] run 3/5 r09: PASS
+  [retrieval] run 3/5 r10: PASS
+  [retrieval] run 3/5 r11: PASS
+  [retrieval] run 3/5 r12: PASS
+  [retrieval] run 3/5 r13: PASS
+  [retrieval] run 3/5 r14: PASS
+  [retrieval] run 3/5 r15: PASS
+  [retrieval] run 3/5 r16: PASS
+  [retrieval] run 3/5 r17: PASS
+  [retrieval] run 3/5 r18: PASS
+  [retrieval] run 3/5 r19: PASS
+  [retrieval] run 3/5 r20: PASS
+  [retrieval] run 3/5 r21: PASS
+  [retrieval] run 3/5 r22: PASS
+  [retrieval] run 3/5 r23: PASS
+  [retrieval] run 3/5 r24: PASS
+  [retrieval] run 3/5 r25: PASS
+  [retrieval] run 3/5 r26: PASS
+  [retrieval] run 3/5 r27: PASS
+  [retrieval] run 3/5 r28: PASS
+  [retrieval] run 3/5 r29: PASS
+  [retrieval] run 3/5 r30: PASS
+  [retrieval] run 3/5 r31: PASS
+  [retrieval] run 3/5 r32: PASS
+  [retrieval] run 3/5 r33: PASS
+  [retrieval] run 3/5 r34: PASS
+  [retrieval] run 3/5 r35: PASS
+  [retrieval] run 3/5 r36: PASS
+  [retrieval] run 3/5 r37: PASS
+  [retrieval] run 3/5 r38: PASS
+  [retrieval] run 3/5 r39: PASS
+  [retrieval] run 3/5 r40: PASS
+  [retrieval] run 3/5 r41: PASS
+  [retrieval] run 3/5 r42: PASS
+  [retrieval] run 3/5 r43: PASS
+  [retrieval] run 3/5 r44: PASS
+  [retrieval] run 3/5 r45: PASS
+  [retrieval] run 3/5 r46: PASS
+  [retrieval] run 3/5 r47: PASS
+  [retrieval] run 3/5 r48: PASS
+  [retrieval] run 3/5 r49: PASS
+  [retrieval] run 3/5 r50: PASS
+  [retrieval] run 4/5 r01: PASS
+  [retrieval] run 4/5 r02: PASS
+  [retrieval] run 4/5 r03: PASS
+  [retrieval] run 4/5 r04: PASS
+  [retrieval] run 4/5 r05: PASS
+  [retrieval] run 4/5 r06: PASS
+  [retrieval] run 4/5 r07: PASS
+  [retrieval] run 4/5 r08: PASS
+  [retrieval] run 4/5 r09: PASS
+  [retrieval] run 4/5 r10: PASS
+  [retrieval] run 4/5 r11: PASS
+  [retrieval] run 4/5 r12: PASS
+  [retrieval] run 4/5 r13: PASS
+  [retrieval] run 4/5 r14: PASS
+  [retrieval] run 4/5 r15: PASS
+  [retrieval] run 4/5 r16: PASS
+  [retrieval] run 4/5 r17: PASS
+  [retrieval] run 4/5 r18: PASS
+  [retrieval] run 4/5 r19: PASS
+  [retrieval] run 4/5 r20: PASS
+  [retrieval] run 4/5 r21: PASS
+  [retrieval] run 4/5 r22: PASS
+  [retrieval] run 4/5 r23: PASS
+  [retrieval] run 4/5 r24: PASS
+  [retrieval] run 4/5 r25: PASS
+  [retrieval] run 4/5 r26: PASS
+  [retrieval] run 4/5 r27: PASS
+  [retrieval] run 4/5 r28: PASS
+  [retrieval] run 4/5 r29: PASS
+  [retrieval] run 4/5 r30: PASS
+  [retrieval] run 4/5 r31: PASS
+  [retrieval] run 4/5 r32: PASS
+  [retrieval] run 4/5 r33: PASS
+  [retrieval] run 4/5 r34: PASS
+  [retrieval] run 4/5 r35: PASS
+  [retrieval] run 4/5 r36: PASS
+  [retrieval] run 4/5 r37: PASS
+  [retrieval] run 4/5 r38: PASS
+  [retrieval] run 4/5 r39: PASS
+  [retrieval] run 4/5 r40: PASS
+  [retrieval] run 4/5 r41: PASS
+  [retrieval] run 4/5 r42: PASS
+  [retrieval] run 4/5 r43: PASS
+  [retrieval] run 4/5 r44: PASS
+  [retrieval] run 4/5 r45: PASS
+  [retrieval] run 4/5 r46: PASS
+  [retrieval] run 4/5 r47: PASS
+  [retrieval] run 4/5 r48: PASS
+  [retrieval] run 4/5 r49: PASS
+  [retrieval] run 4/5 r50: PASS
+  [retrieval] run 5/5 r01: PASS
+  [retrieval] run 5/5 r02: PASS
+  [retrieval] run 5/5 r03: PASS
+  [retrieval] run 5/5 r04: PASS
+  [retrieval] run 5/5 r05: PASS
+  [retrieval] run 5/5 r06: PASS
+  [retrieval] run 5/5 r07: PASS
+  [retrieval] run 5/5 r08: PASS
+  [retrieval] run 5/5 r09: PASS
+  [retrieval] run 5/5 r10: PASS
+  [retrieval] run 5/5 r11: PASS
+  [retrieval] run 5/5 r12: PASS
+  [retrieval] run 5/5 r13: PASS
+  [retrieval] run 5/5 r14: PASS
+  [retrieval] run 5/5 r15: PASS
+  [retrieval] run 5/5 r16: PASS
+  [retrieval] run 5/5 r17: PASS
+  [retrieval] run 5/5 r18: PASS
+  [retrieval] run 5/5 r19: PASS
+  [retrieval] run 5/5 r20: PASS
+  [retrieval] run 5/5 r21: PASS
+  [retrieval] run 5/5 r22: PASS
+  [retrieval] run 5/5 r23: PASS
+  [retrieval] run 5/5 r24: PASS
+  [retrieval] run 5/5 r25: PASS
+  [retrieval] run 5/5 r26: PASS
+  [retrieval] run 5/5 r27: PASS
+  [retrieval] run 5/5 r28: PASS
+  [retrieval] run 5/5 r29: PASS
+  [retrieval] run 5/5 r30: PASS
+  [retrieval] run 5/5 r31: PASS
+  [retrieval] run 5/5 r32: PASS
+  [retrieval] run 5/5 r33: PASS
+  [retrieval] run 5/5 r34: PASS
+  [retrieval] run 5/5 r35: PASS
+  [retrieval] run 5/5 r36: PASS
+  [retrieval] run 5/5 r37: PASS
+  [retrieval] run 5/5 r38: PASS
+  [retrieval] run 5/5 r39: PASS
+  [retrieval] run 5/5 r40: PASS
+  [retrieval] run 5/5 r41: PASS
+  [retrieval] run 5/5 r42: PASS
+  [retrieval] run 5/5 r43: PASS
+  [retrieval] run 5/5 r44: PASS
+  [retrieval] run 5/5 r45: PASS
+  [retrieval] run 5/5 r46: PASS
+  [retrieval] run 5/5 r47: PASS
+  [retrieval] run 5/5 r48: PASS
+  [retrieval] run 5/5 r49: PASS
+  [retrieval] run 5/5 r50: PASS
+
+=== text_only ===
+pass rate     32.0%  (sd 2.0% over 5 runs; 95% CI over cases 20.8%-44.0%)
+pass^5        22.0%   pass@5 40.0%
+mrr           0.245  (sd 0.006; 95% CI 0.200-0.293)
+recall@10     0.447  (sd 0.009; 95% CI 0.381-0.514)
+cost/task     $0.0319 (API-equivalent)
+latency/task  10.83s
+flaky cases   r03, r15, r16, r24, r25, r28, r30, r37, r50
+failure clusters:
+  fail:style_misread           30/30 cases failed
+  n4                           21/26 cases failed
+  n3                           18/24 cases failed
+  living                       17/20 cases failed
+  fail:retrieval_miss          17/17 cases failed
+  bedroom                      9/12 cases failed
+  dining                       8/10 cases failed
+  study                        5/8 cases failed
+
+=== full ===
+pass rate     63.2%  (sd 2.3% over 5 runs; 95% CI over cases 50.0%-75.6%)
+pass^5        54.0%   pass@5 70.0%
+mrr           0.438  (sd 0.005; 95% CI 0.381-0.494)
+recall@10     0.647  (sd 0.005; 95% CI 0.582-0.709)
+cost/task     $0.0319 (API-equivalent)
+latency/task  10.83s
+vs text_only: +31.2% pass rate
+   mrr: +0.193
+   recall@10: +0.200
+flaky cases   r03, r15, r25, r29, r30, r45, r46, r48
+failure clusters:
+  fail:style_misread           22/22 cases failed
+  fail:retrieval_miss          13/13 cases failed
+  n4                           13/26 cases failed
+  n3                           10/24 cases failed
+  living                       9/20 cases failed
+  bedroom                      7/12 cases failed
+  study                        4/8 cases failed
+  dining                       3/10 cases failed
+
+ablation (recall@10 mean, sd over runs):
+  full        0.647  sd 0.005  CI 0.582-0.709   pass^5 54.0%
+  text_only   0.447  sd 0.009  CI 0.381-0.514   pass^5 22.0%
+  clip_text   0.644  sd 0.006  CI 0.579-0.712   pass^5 52.0%
+  image_only  0.612  sd 0.003  CI 0.538-0.677   pass^5 54.0%
+  no_bm25     0.638  sd 0.009  CI 0.565-0.707   pass^5 54.0%

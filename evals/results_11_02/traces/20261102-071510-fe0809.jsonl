@@ -1,0 +1,1 @@
+{"ts": 1793574952.6, "run_id": "20261102-071510-fe0809", "node": "no_tools", "event": "model_call", "latency_s": 42.26, "input_tokens": 4398, "output_tokens": 3667, "cost_usd": 0.09878739999999998}

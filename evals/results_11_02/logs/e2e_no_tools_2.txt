@@ -1,0 +1,18 @@
+  [e2e (no_tools)] run 2/2 e01: PASS
+  [e2e (no_tools)] run 2/2 e02: PASS
+  [e2e (no_tools)] run 2/2 e03: PASS
+  [e2e (no_tools)] run 2/2 e04: PASS
+  [e2e (no_tools)] run 2/2 e05: PASS
+  [e2e (no_tools)] run 2/2 e06: PASS
+  [e2e (no_tools)] run 2/2 e07: PASS
+  [e2e (no_tools)] run 2/2 e08: PASS
+  [e2e (no_tools)] run 2/2 e09: PASS
+  [e2e (no_tools)] run 2/2 e10: PASS
+=== e2e (no_tools) ===
+pass rate     100.0%  (sd 0.0% over 2 runs; 95% CI over cases 100.0%-100.0%)
+pass^2        100.0%   pass@2 100.0%
+catalog_match 0.000  (sd 0.000; 95% CI 0.000-0.000)
+violations    0.000  (sd 0.000; 95% CI 0.000-0.000)
+cost/task     $0.1782 (API-equivalent)
+latency/task  74.03s
+failure clusters:

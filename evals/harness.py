@@ -9,6 +9,8 @@ Added:
   - continuous metrics per run (e.g. recall@10) via AgentResult.metrics, with sd and CI
   - resumable runs: outcomes are appended to a JSONL file and skipped on restart
     (the CLI backend has rate limits; a crash at case 40 should not cost cases 1-39)
+  - a transient backend failure (a stalled CLI, a rate limit) is retried, and the count is
+    saved with the outcome: it says nothing about the agent, so it must not score as a wrong answer
 """
 from __future__ import annotations
 
@@ -19,6 +21,10 @@ import statistics
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable
+
+from renopilot.llm import is_transient
+
+TRANSIENT_RETRIES = 2
 
 Grader = Callable[["Case", "AgentResult"], bool]
 
@@ -44,6 +50,7 @@ class AgentResult:
     metrics: dict[str, float] = field(default_factory=dict)
     failure_tags: list[str] = field(default_factory=list)   # set by the grader / adapter on a fail
     run_id: str | None = None                               # trace file in runs/
+    retries: int = 0                                        # transient backend failures before this result
 
 
 @dataclass
@@ -200,6 +207,20 @@ def evaluation_fingerprints(cases: list[Case], revision: str = "") -> dict[str, 
         [c.input, c.expected], sort_keys=True, default=str)).encode()).hexdigest() for c in cases}
 
 
+def run_once(agent_fn: Callable[[Any], AgentResult], inp: Any) -> AgentResult:
+    """One run of one case. Anything but a transient failure is the agent's result: a crash is a result."""
+    for attempt in range(TRANSIENT_RETRIES + 1):
+        try:
+            result = agent_fn(inp)
+            result.retries = attempt
+            return result
+        except Exception as e:                               # noqa: BLE001
+            if attempt == TRANSIENT_RETRIES or not is_transient(e):
+                return AgentResult(output="", error=f"{type(e).__name__}: {e}", retries=attempt)
+            print(f"  transient failure, retrying: {str(e)[:80]}", flush=True)
+    raise AssertionError("unreachable")
+
+
 def run_eval(agent_fn: Callable[[Any], AgentResult], cases: list[Case], grader: Grader,
              n_runs: int = 3, name: str = "agent", resume_file: str | Path | None = None,
              revision: str = "") -> Report:
@@ -221,10 +242,7 @@ def run_eval(agent_fn: Callable[[Any], AgentResult], cases: list[Case], grader: 
             if (case.id, run_index) in done:
                 outcomes.append(done[(case.id, run_index)])
                 continue
-            try:
-                result = agent_fn(case.input)
-            except Exception as e:                           # noqa: BLE001 - a crash is a result
-                result = AgentResult(output="", error=f"{type(e).__name__}: {e}")
+            result = run_once(agent_fn, case.input)
             passed = False if result.error else bool(grader(case, result))
             tags = list(case.tags) + (["crash"] if result.error else [])
             o = CaseOutcome(case.id, passed, run_index, result, tags, fingerprints[case.id])

@@ -52,9 +52,8 @@ def show_approval(gate: dict) -> list[dict]:
         if c["product_id"]:
             print(f"      {c['reason']}")
             for a in c.get("comparables") or []:
-                tag = " [SAMPLE DATA]" if a["sample"] else ""
-                print(f"      {'cheaper' if a['cheaper'] else 'similar'} at {a['source']}: {a['title'][:50]} "
-                      f"{a['landed']} landed{tag}")
+                word = "illustration, not a real offer," if a["sample"] else "cheaper" if a["cheaper"] else "similar"
+                print(f"      {word} at {a['source']}: {a['title'][:50]} {a['landed']} landed")
     for e in gate.get("escalations") or []:
         print(f"\n  note: {e}")
     return cards
@@ -103,6 +102,10 @@ def main() -> None:
         while "__interrupt__" in out:
             gate = out["__interrupt__"][0].value
             if gate["type"] == "approval":
+                if gate.get("error"):
+                    print(f"\n{gate['error']}")
+                    if args.auto_approve:              # the same answer would fail again, forever
+                        raise SystemExit(1)
                 resume = ask_approval(show_approval(gate), args.auto_approve)
             else:
                 resume = ask_question(gate, args.auto_approve)

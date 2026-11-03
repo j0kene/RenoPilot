@@ -6,8 +6,8 @@ All grounding data is a dated snapshot, frozen before evaluation. Large files (`
 | Data | Source | Licence / terms | Snapshot | Script | Used by |
 |---|---|---|---|---|---|
 | Product catalog for retrieval (furniture subset of ABO) | Amazon Berkeley Objects, public S3 bucket `amazon-berkeley-objects` | CC BY 4.0 (credit: Collins et al., "ABO: Dataset and Benchmarks for Real-World 3D Object Understanding", CVPR 2022) | 2026-10-22 | `fetch_abo.py`, `build_abo_subset.py` | retrieval eval, catalog |
-| SG price catalog (`sg_catalog.csv`) | IKEA Singapore (public search API behind ikea.com/sg; robots.txt on that host allows all), Castlery SG category pages (JSON-LD; robots.txt allows) | Prices, titles and links quoted for a private student project; images cached locally only to compute embeddings, not redistributed | 2026-10-22 | `collect_sg_catalog.py` | Style agent demo, budget filter, Pricing |
-| Overseas listings (`taobao_manual.csv`) | **18 synthetic sample fixtures** (made up for testing; `synthetic=true`, `[SAMPLE]` titles, no URLs). Real Taobao rows (login wall) to be entered by hand later, same columns | n/a (synthetic) | 2026-10-25 | manual | Pricing |
+| SG price catalog (`sg_catalog.csv`) | IKEA Singapore (public search API behind ikea.com/sg; robots.txt on that host allows all), Castlery SG category pages (JSON-LD; robots.txt allows) | Prices, titles and links quoted for a private student project; images cached locally only to compute embeddings, not redistributed | 2026-10-22 (frozen; not refreshed for this change) | `collect_sg_catalog.py` | Style agent demo, budget filter, Pricing |
+| Overseas listings (`taobao_manual.csv`) | **18 made-up illustrations** of the overseas landed-cost method (`synthetic=true`, `[SAMPLE]` titles, no URLs), not observed prices. Taobao sits behind a login; real rows can be entered by hand in the same columns | n/a (synthetic) | 2026-10-25 | manual | Pricing |
 | Pricing rules (`pricing/rules.json`) | IRAS (GST 9% on imports), Singapore Customs (low-value goods / OVR, S$400 air/post import relief, no relief by sea, dutiable goods), IKEA SG and Castlery delivery pages; Cainiao sea tariff via PropertyGuru (2020, **assumption**); air rate (**assumption**) | public pages; each entry carries its URL and date checked | 2026-10-25 | hand-compiled | Pricing |
 | FX snapshot (`pricing/fx_snapshot.json`) | Frankfurter API (ECB reference rates) | free, no key | rates of 2026-10-23, fetched 2026-10-25 | `fx.py` | Pricing evals |
 | HDB renovation rule cards (`compliance/hdb_rules.jsonl`) | HDB Renovation Guidelines for Building Works, Important Information on Renovations, Application for a Renovation Permit (hdb.gov.sg); MyNiceHome (gov.sg); 8 contractor/blog guides as **secondary** sources (`compliance/sources.json` lists each URL, status and whether it is official) | public pages, quoted for a private student project; raw pages not redistributed | 2026-10-26 | `fetch_hdb_sources.py`; cards hand-written, quotes checked by `tests/test_compliance_kb.py` | Compliance guard |
@@ -30,5 +30,12 @@ All grounding data is a dated snapshot, frozen before evaluation. Large files (`
   (`basket_total`) charge each local retailer's fee once (Castlery's tier is re-read on the order total).
 - **IKEA rows have no weights**, so the IKEA delivery tier (S$10 parcel vs S$35 home) uses a typical weight per
   item type and the quote is marked estimated.
+- Catalog detail enrichment is opt-in with `collect_sg_catalog.py --details-per-type N`, which bounds IKEA SG and Castlery
+  product-page requests per retailer/type and reads explicit JSON-LD material/dimension fields. `catalog_overrides.csv`
+  can add a manual colour, material, or dimension keyed by product id; each populated override requires a
+  `source_url` and ISO `checked_at` date. The template is empty and no rows in the frozen catalog were refreshed.
+- Size fit uses only unit-explicit axis labels or an explicit W×D×H descriptor. Bare dimensions such as
+  `90x55 cm` do not identify width and depth. Missing material or unmappable dimensions stay unknown; they are
+  not treated as confirmed physical equivalence.
 - **Overseas shipping rates are the weakest data**: no authoritative current rate was found; quotes using the
   estimate list it as an assumption, and a seller-quoted fee on the row always wins.

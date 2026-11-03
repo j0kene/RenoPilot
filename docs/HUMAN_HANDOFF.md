@@ -21,7 +21,14 @@ Then run the real suites with the team's chosen model configuration:
 ```bash
 python -m uv run python evals/run_end_to_end.py --mode live --n-runs 5
 python -m uv run python evals/run_compliance.py --live --n-runs 5
+python -m uv run python evals/run_compliance.py --baseline --n-runs 5
+python -m uv run python evals/run_end_to_end.py --mode no_tools --n-runs 5
+python -m uv run python evals/run_end_to_end.py --mode live --no-guard --n-runs 5
 ```
+
+The last three are the baselines and ablation; see `docs/SCOPE_CHANGES.md` for how they are graded before
+quoting them. The graph suite's fixed planner is expected to fail g05: only the LLM planner turns owner feedback
+into search words, which is the difference that suite exists to show.
 
 Inspect each failure and its `run_id` in `runs/` or Langfuse. Confirm that the output really uses the
 uploaded/example images, that a mixed living/bathroom board assigns rooms per item, that requested
@@ -99,7 +106,7 @@ and the final report includes Precision@5 (target ≥0.60), five-run reliability
 ## 4. Independently verify HDB cards and compliance gold answers
 
 **Owner:** the compliance workstream member; ask HDB or a suitably qualified practitioner when the
-source does not resolve a technical condition. **Scope:** all 22 rule cards, 50 QA cases and 20
+source does not resolve a technical condition. **Scope:** all 22 rule cards, 55 QA cases and 20
 adversarial request cases. Prompt-injection cases also need a check that they test genuine attacks.
 
 Use `data/labels/compliance_review.csv` to record the reviewer, review date, confirmed status and
@@ -127,12 +134,18 @@ python -m uv run python evals/run_compliance.py --n-runs 5
 labels have been independently reviewed, and the report clearly distinguishes deterministic rule
 enforcement from live natural-language interpretation. Do not describe unresolved conditions as cleared.
 
-## 5. Replace synthetic overseas offers before claiming real savings
+## 5. Overseas rows stay illustrations unless real listings arrive
 
-**Owner:** the catalog/pricing workstream member with access to the seller listings. All 18 current
-`data/taobao_manual.csv` rows are sample fixtures. The app excludes them from purchasable selections.
+**Decision:** real Taobao listings may not arrive in time, so all 18 `data/taobao_manual.csv` rows are presented as
+made-up illustrations of the landed-cost method. No step here is needed for the submission except the check below.
+`docs/SCOPE_CHANGES.md` lists what the report may and may not claim. The 28 real comparable pairs in
+`evals/cases/comparables.jsonl` still need the same independent label review as the other suites.
 
-For each real replacement, capture a stable product URL/id, listing title, correct item type, seller,
+**Check before presenting:** the IKEA SG and Castlery delivery tables, and the GST rules, in `data/pricing/rules.json`
+against their sources. These are the real prices. Freight and FX only affect the illustrations.
+
+**Only if real listings do arrive** (owner: the catalog/pricing workstream member with access to them): for each
+real replacement, capture a stable product URL/id, listing title, correct item type, seller,
 current price/currency and capture date. Match the actual size/variant/material, not only a similar
 thumbnail. Record dimensions, packed weight/volume, shipping mode and a seller/forwarder shipping
 quote where available; record whether last-mile delivery, insurance and tax are included. Preserve
@@ -144,9 +157,8 @@ on an old secondary source and the air estimate is an assumption. Obtain current
 them prominently marked as estimates. Have the pricing owner check the frozen delivery, FX and
 tax-rule inputs against their authoritative sources before making current-price claims.
 
-**Complete when:** the demonstration's real overseas comparisons have working links, correct variants,
-dated evidence and defensible delivered-cost inputs. If this work is deferred, present those examples
-as synthetic pricing illustrations and do not claim observed savings from real overseas offers.
+**Complete when:** the local pricing inputs are checked and the report's claims match `docs/SCOPE_CHANGES.md`. Real
+overseas comparisons additionally need working links, correct variants, dated evidence and defensible delivered-cost inputs.
 
 ## 6. Rehearse the final owner journey and approve the report claims
 
@@ -163,7 +175,7 @@ an entirely completed renovation plan. Sessions currently use an in-memory check
 restart/reset does not preserve the in-progress project.
 
 Align the slides/report with completed evidence: 27 currently available style boards, the actual SG
-catalog snapshot, the synthetic overseas limitation, fixed-date contract versus authenticated live
+catalog snapshot, the illustrative overseas rows, fixed-date contract versus authenticated live
 results, and pending human labels. Preserve model names, case counts, run counts, cost/latency, failures
 and baseline comparisons. The current code does not certify a renovation or purchase anything;
 actual works still need the owner's fact confirmation, relevant approvals and contractor checks.

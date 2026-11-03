@@ -39,7 +39,7 @@ MODELS = {
     },
 }
 
-CLI_TIMEOUT_S = int(os.environ.get("RENOPILOT_CLI_TIMEOUT", "240"))
+CLI_TIMEOUT_S = int(os.environ.get("RENOPILOT_CLI_TIMEOUT", "480"))   # a no-tools plan took 164 s and timed out at 240 s
 
 # --------------------------------------------------------------------------- retrieval
 EMBED_MODEL = os.environ.get("RENOPILOT_EMBED_MODEL", "ViT-B-16-SigLIP:webli")

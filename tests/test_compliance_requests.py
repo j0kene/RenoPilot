@@ -10,9 +10,10 @@ from renopilot.demo import demo_nodes
 from renopilot.graph import build_graph
 from renopilot.demo import demo_index
 from renopilot.nodes.guard import compliance_guard, verdict_for
+from renopilot.nodes.planner import make_planner
 from renopilot.nodes.style import build_shortlist
-from renopilot.schemas import ItemSpec, ProjectProfile, Suggestion
-from tests.fakes import PROFILE
+from renopilot.schemas import ItemSpec, ProjectProfile, Suggestion, WorkDetails
+from tests.fakes import PROFILE, ScriptedPlanner
 
 BOARD = [str(p) for p in sorted((config.BOARDS / "japandi_01").glob("*.jpg"))]
 
@@ -73,7 +74,7 @@ def test_blocked_work_gets_a_separate_owner_chosen_and_rechecked_alternative():
         result = original(state)
         result["style_profile"] = result["style_profile"].model_copy(update={"items": [
             ItemSpec(item_type="partition_wall_change", room="living", work_method="demolish", structural=True,
-                     description="Remove a structural RC wall")]})
+                     description="Remove a structural RC wall", work_details=WorkDetails(partition_material="gypsum"))]})
         return result
 
     graph = build_graph(nodes=nodes | {"style_extract": extract})
@@ -103,6 +104,52 @@ def test_unspecified_wall_work_cannot_assert_non_structural_status_by_selecting_
     demolition = next(o for o in v.options if o.rule_id == "HDB-WALL-DEMOLISH")
     assert demolition.decision == "escalate"
 
+
+
+WALL = ItemSpec(item_type="partition_wall_change", room="mixed", work_method="demolish", structural=True,
+                description="Hack and remove a structural RC wall")
+
+
+def test_the_guard_checks_requested_work_no_suggestion_carries():
+    """Regression: the live planner left the wall out of its search, so the guard never saw it."""
+    profile = PROFILE.model_copy(update={"items": [WALL, ItemSpec(item_type="sofa", description="Linen sofa")]})
+    sofa = Suggestion(product_id="s", item_type="sofa", work_type="loose_furniture")
+    checked = compliance_guard({"style_profile": profile, "suggestions": [sofa], "project": ProjectProfile()})
+    wall = next(s for s in checked["suggestions"] if s.item_type == "partition_wall_change")
+    assert wall.verdict.rule_id == "HDB-WALL-STRUCTURAL" and wall.status == "rejected"
+    assert len(checked["suggestions"]) == 2
+
+
+def test_the_guard_does_not_duplicate_work_a_suggestion_already_carries():
+    tiles = ItemSpec(item_type="floor_tiles", room="living", description="Terrazzo tiles")
+    profile = PROFILE.model_copy(update={"items": [tiles]})
+    routed = Suggestion(item_type="floor_tiles", work_type="finish", room="living", work_method="replace")
+    checked = compliance_guard({"style_profile": profile, "suggestions": [routed], "project": ProjectProfile()})
+    assert len(checked["suggestions"]) == 1              # the owner's route changed its key, not the request
+
+
+def test_a_narrowing_planner_still_gets_furniture_and_a_verdict_on_the_work():
+    """The trace of the failed live runs, replayed: search what the brief named, then try to stop."""
+    nodes = demo_nodes()
+    original = nodes["style_extract"]
+
+    def extract(state):
+        result = original(state)
+        result["style_profile"] = result["style_profile"].model_copy(update={"items": [
+            WALL, ItemSpec(item_type="sofa", description="low linen sofa with light oak legs"),
+            ItemSpec(item_type="coffee_table", description="round light oak coffee table")]})
+        return result
+
+    script = [{"action": "extract_style", "why": ""}, {"action": "shortlist", "item_types": ["sofa"], "why": "only this"},
+              {"action": "finalize", "why": "eager"}, {"action": "finalize", "why": "still eager"}]
+    graph = build_graph(nodes=nodes | {"style_extract": extract, "planner": make_planner("llm", ScriptedPlanner(script))})
+    cfg = {"configurable": {"thread_id": uuid4().hex}, "recursion_limit": 80}
+    out = graph.invoke({"board_images": BOARD, "messages": [], "project": ProjectProfile(total_budget=6000)}, cfg)
+    gate = out["__interrupt__"][0].value
+    assert {c["item_type"] for c in gate["suggestions"]} == {"sofa", "coffee_table"}
+    assert [b["rule_id"] for b in gate["blocked"]] == ["HDB-WALL-STRUCTURAL"]
+    final = graph.invoke(Command(resume={"approve": "all"}), cfg)
+    assert final["approved"] and "Not allowed under HDB rules" in final["messages"][-1].content
 
 
 def test_owner_date_correction_rechecks_the_work_without_a_stale_block():

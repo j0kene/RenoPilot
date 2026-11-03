@@ -54,6 +54,25 @@ def within(price_sgd: float | None, cap: float | None) -> bool:
     return price_sgd is not None and price_sgd <= cap + 1e-9
 
 
+def request_caps(project: ProjectProfile | None, requests) -> dict[str, float | None]:
+    """Per-unit caps, reserving the cost of every requested unit and room."""
+    requests = list(requests)
+    quantities: dict[str, int] = {}
+    for s in requests:
+        quantities[s.item_type] = quantities.get(s.item_type, 0) + s.quantity
+    if project is None or project.total_budget is None:
+        caps = caps_for(project, quantities)
+    else:
+        total_budget = project.total_budget
+        caps = {t: min(project.budget_by_category[t], total_budget / q)
+                for t, q in quantities.items() if t in project.budget_by_category}
+        left = max(0, total_budget - sum(caps[t] * quantities[t] for t in caps))
+        open_types = [t for t in quantities if t not in caps]
+        weight = sum(WEIGHTS.get(t, DEFAULT_WEIGHT) * quantities[t] for t in open_types)
+        caps.update({t: left * WEIGHTS.get(t, DEFAULT_WEIGHT) / weight for t in open_types})
+    return {getattr(s, "selection_key", None) or s.request_id or s.item_type: caps.get(s.item_type) for s in requests}
+
+
 def total(suggestions: Iterable[Suggestion], status: str | None = "approved") -> float:
     """Sum of listed SGD prices (status=None sums everything)."""
     return round(sum(s.price_sgd or 0.0 for s in suggestions if status is None or s.status == status), 2)

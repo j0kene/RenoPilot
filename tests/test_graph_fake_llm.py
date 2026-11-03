@@ -37,7 +37,7 @@ def test_happy_path_parks_at_approval_then_responds(tmp_path):
     tiles = next(c for c in gate["suggestions"] if c["item_type"] == "floor_tiles")
     # Unknown method is not silently replaced with the easiest legal one.
     assert tiles["verdict"] == "escalate"
-    assert [r["decision"] for r in tiles["routes"]] == ["allow", "allow_with_permit", "block"]
+    assert [r["decision"] for r in tiles["routes"]] == ["escalate", "allow_with_permit", "block"]
     # the owner will hack out the old tiles instead; a blocked route (raising the floor) is never taken
     final = g.invoke(Command(resume={"approve": "all", "routes": {"floor_tiles": "HDB-FLOOR-REPLACE"}}), cfg)
     assert final["approved"] is True
@@ -45,6 +45,7 @@ def test_happy_path_parks_at_approval_then_responds(tmp_path):
     assert sum(s.status == "approved" for s in final["suggestions"] if s.product_id) == 2
     tiles = next(s for s in final["suggestions"] if s.item_type == "floor_tiles")
     assert tiles.verdict.rule_id == "HDB-FLOOR-REPLACE" and tiles.verdict.decision == "allow_with_permit"
+    assert tiles.status == "proposed"  # selected route still has technical conditions to verify
     assert len(tiles.verdict.options) == 3
 
 
@@ -77,6 +78,16 @@ def test_too_few_in_budget_asks_the_owner_and_budget_change_reshortlists(tmp_pat
     assert gate["type"] == "approval"
     assert sum(c["item_type"] == "sofa" for c in gate["suggestions"]) >= 3
     assert g.get_state(cfg).values["project"].budget_by_category["sofa"] == 2000
+    searches = [t["item_types"] for t in g.get_state(cfg).values["trace"] if t.get("action") == "shortlist"]
+    assert searches[1:] == [["sofa"]]                    # only the type whose cap moved is searched again
+
+
+def test_a_changed_total_searches_every_type_whose_share_moved(tmp_path):
+    g, cfg, out = _start(tmp_path, total_budget=1200)
+    assert out["__interrupt__"][0].value["type"] == "question"
+    out = g.invoke(Command(resume={"answer": "more", "total_budget": 6000}), cfg)
+    searches = [t["item_types"] for t in g.get_state(cfg).values["trace"] if t.get("action") == "shortlist"]
+    assert searches[1:] == [["sofa", "coffee_table"]]
 
 
 def test_owner_can_decline_to_raise_budget(tmp_path):

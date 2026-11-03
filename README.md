@@ -1,113 +1,221 @@
 # RenoPilot
 
-From mood board to a compliant, priced shortlist for BTO owners in Singapore (CS621 group project).
+RenoPilot helps new BTO owners in Singapore go from a mood board to a furniture shortlist they can actually
+buy, with prices they can trust and renovation plans that respect HDB rules.
 
-The integrated demo runs mood board → style and retrieval → landed pricing → HDB check → owner selection.
-Choose one offer per furniture category, see the delivered basket total and remaining budget, and export a
-CSV shopping list. Each renovation item carries its own room and requested method. Blocked work stays
-blocked; an owner-chosen alternative is a separate proposal checked by the guard again.
+## What it does
 
-## Setup (Windows, Python 3.12)
+You give RenoPilot a few inspiration images, a budget, and some details about your flat. It then:
+
+1. **Reads the style** of your mood board (palette, materials, overall look).
+2. **Finds matching products** from real IKEA SG and Castlery listings.
+3. **Works out the landed price**, including delivery, which is shared across everything you buy from the
+   same retailer.
+4. **Checks your renovation plans against HDB rules**, such as the 3-year wait before redoing a bathroom.
+5. **Lets you choose.** You pick one offer per item (the same kind of furniture can appear in different
+   rooms), set quantities, and export the final list as a CSV.
+
+Renovation costs are tracked separately from the furniture budget. If HDB rules block a piece of work, it
+stays blocked. If you choose a different way of doing it, RenoPilot shows you a preview and runs the same
+compliance check again before anything is approved.
+
+## Getting started
+
+You'll need Python 3.12. We use [uv](https://docs.astral.sh/uv/) to manage dependencies.
 
 ```bash
 python -m pip install --user uv
-python -m uv sync                      # creates .venv from uv.lock
-copy .env.example .env                 # model and Langfuse settings
-python -m uv run pytest                # offline tests, no model calls
+python -m uv sync                  # creates .venv from uv.lock
+copy .env.example .env             # on macOS/Linux: cp .env.example .env
+python -m uv run pytest            # offline tests, no model calls
 ```
 
-Set `RENOPILOT_BACKEND=claude_cli` (default) or `openai` in `.env`. Claude CLI uses a Claude Code login or token; the OpenAI API backend uses `OPENAI_API_KEY`. Per-role models can be set with `RENOPILOT_MODEL_VISION`, `RENOPILOT_MODEL_PLANNER`, `RENOPILOT_MODEL_RERANK`, `RENOPILOT_MODEL_SHOPPER`, and `RENOPILOT_MODEL_INTAKE`. Live tests: `set RENOPILOT_LIVE=1 && python -m uv run pytest tests/test_llm_live.py`.
+All configuration lives in `.env`. The comments in [.env.example](.env.example) explain every option, but
+these are the ones you're most likely to touch:
 
-## Data (frozen snapshots; large files are gitignored and rebuilt by script)
+- `RENOPILOT_BACKEND` chooses the model provider. The default, `claude_cli`, uses your Claude Code login or
+  token. Set it to `openai` to use `OPENAI_API_KEY` instead.
+- `RENOPILOT_MODEL_VISION`, `_PLANNER`, `_RERANK`, `_SHOPPER` and `_INTAKE` let you pick a different model
+  for each role.
+- `RENOPILOT_FX=snapshot` uses our saved exchange rates, so results are reproducible and work offline. If you
+  leave it unset, live daily rates come from Frankfurter.
+
+To run the tests that call a real model:
+`set RENOPILOT_LIVE=1 && python -m uv run pytest tests/test_llm_live.py`
+(on macOS/Linux: `RENOPILOT_LIVE=1 python -m uv run pytest tests/test_llm_live.py`).
+
+## Running the app
+
+The quickest way to see RenoPilot is the Streamlit app in offline mode:
 
 ```bash
-python -m uv run python data/scripts/fetch_abo.py              # ABO metadata (~90 MB)
-python -m uv run python data/scripts/build_abo_subset.py       # furniture subset + images
-python -m uv run python data/scripts/collect_sg_catalog.py     # IKEA SG + Castlery -> data/sg_catalog.csv
-python -m uv run python data/scripts/build_index.py            # SQLite + SigLIP embeddings
-python -m uv run python data/scripts/make_retrieval_boards.py  # retrieval eval cases
-python -m uv run python data/scripts/fetch_unsplash_boards.py  # style eval boards (needs UNSPLASH_ACCESS_KEY)
+python -m uv run --group ui streamlit run app/streamlit_app.py
 ```
 
-Sources, licences and snapshot dates: [data/SOURCES.md](data/SOURCES.md).
+Offline mode walks through one scripted Japandi example (`japandi_01`). The models are played by code, so it
+shows how the workflow fits together rather than how well the system understands images. Switch to Live mode
+to try the other example boards or upload your own.
 
-## Run
+There is also a command-line version:
 
 ```bash
-python -m uv run --group ui streamlit run app/streamlit_app.py     # offline mode: one labelled scripted Japandi example
-python -m uv run python evals/demo_trace.py                          # the same offline demo, scripted, to Langfuse
 python -m uv run python -m renopilot.run_cli --board data/boards/japandi_01 --budget sofa=1500,coffee_table=400
 python -m uv run python -m renopilot.run_cli --board a.jpg b.jpg c.jpg --total 6000 --planner fixed
-python -m uv run python -m renopilot.run_cli --board data/boards/japandi_01 --total 6000 --completed 2024-06-01 --flat-type 4-room --brief "we also want to redo the bathroom floor"
-python -m uv run python -m renopilot.graph      # print the graph as mermaid
+python -m uv run python -m renopilot.run_cli --board data/boards/japandi_01 --total 6000 \
+    --completed 2024-06-01 --flat-type 4-room --brief "we also want to redo the bathroom floor"
 ```
 
-The owner's details go in two ways, merged at intake: form fields / CLI flags (flat type, block completion date,
-budgets) always win, and a free-text brief ("What would you like?" / `--brief`) fills anything they leave empty
-(read by the intake model; by a small parser in demo mode). The completion date drives HDB's 3-year bathroom rule;
-items the brief asks for (e.g. bathroom tiles) are added to the board's items.
-Offline mode only accepts `japandi_01`; its fixed profile and code-driven models demonstrate the workflow,
-not image understanding. Use Live for other example boards or uploads. Unknown work methods and rooms
-stay pending instead of inheriting a majority-room classification or silently taking the easiest route.
-
-Prices: `RENOPILOT_FX=snapshot` uses the frozen FX file (reproducible, offline); the default fetches daily
-rates from Frankfurter. Overseas rows are currently synthetic sample data (see `data/SOURCES.md`).
-
-Every run writes a JSONL trace to `runs/<run_id>.jsonl`, one row per node or model call.
-
-## Tracing in Langfuse (self-hosted, docker-compose.yml)
-
-`docker compose up -d` starts Langfuse at http://localhost:3000. Log in as `dev@renopilot.local` /
-`renopilot-local`; on first start the stack creates the project with the `LANGFUSE_*` keys from `.env`, so the app and
-the server always agree (comment the keys out to turn tracing off). Graph runs from the CLI, the Streamlit app and `evals/run_graph.py` then show up as one trace per conversation,
-with all the interrupt/resume turns in it: the master agent's tool calls, each subagent node, the shopper agents
-and their tool calls (`search_catalog`, `product_details`, `landed_price`), the code-level tools under them
-(`@trace.tool`: catalog search, landed cost, basket total, comparable candidates, HDB rule check), and every model
-call (prompt, reply, tokens). See [docs/INTERFACES.md](docs/INTERFACES.md) for the master/subagent layout. The CLI prints the trace link at the end.
-
-## Evals
-
-| command | what | grader |
-|---|---|---|
-| `python -m uv run python evals/run_retrieval.py --n-runs 5` | Recall@10 on boards of known ABO products, vs text-only baseline + ablations | deterministic |
-| `python -m uv run python evals/run_style.py --n-runs 5 --baseline` | style attribute F1 vs two human labellers | deterministic |
-| `python -m uv run python evals/run_graph.py --n-runs 5` | routes at each boundary (incl. pricing: landed-cost budget removal, stale FX, pricing off), LLM planner vs fixed pipeline | trajectory assertions |
-| `python -m uv run python evals/run_pricing.py --n-runs 5` | comparable judging on 28 labelled pairs (17 positive, 11 hard negatives) vs type-only and dims-only baselines | label match |
-| `python -m uv run pytest tests/test_landed_cost.py` | 30 hand-worked landed-cost cases, exact to the cent | exact |
-
-Results append to `evals/results/*.jsonl`, so an interrupted run resumes where it stopped.
-New outcomes include a fingerprint of the code, grounding data, case inputs and expected labels;
-outdated outcomes are not reused after changes. Incomplete repetitions do not count as pass^5.
-
-Additional evaluation commands:
+A few other useful commands:
 
 ```bash
-python -m uv run python evals/run_compliance.py --n-runs 5          # 50 QA + 20 adversarial + 10 injection contracts
-python -m uv run python evals/run_compliance.py --live --n-runs 5   # real request interpretation / injected shopper
-python -m uv run python evals/run_end_to_end.py --mode demo --n-runs 5  # 10 complete SG-catalog journeys
-python -m uv run python evals/run_end_to_end.py --mode live --n-runs 5  # real vision/planner/shoppers/pricing
-python -m uv run python evals/run_shortlist.py --prepare --n-runs 5    # real SG top-five results + paired BM25 baseline
-python -m uv run python evals/run_shortlist.py --score --n-runs 5      # only after humans label the prepared results
+python -m uv run python evals/demo_trace.py      # run the offline demo and send the trace to Langfuse
+python -m uv run python -m renopilot.graph       # print the agent graph as a Mermaid diagram
 ```
 
-Contract results establish deterministic enforcement, not live-model injection resistance. The ABO
-Recall@10 suite is a retrieval diagnostic; `run_shortlist.py` measures final SG Precision@5 from human
-judgements. Both human style-label sheets are still pending; no automatic substitute labels were added.
-The complete human task list, review rubrics, file locations and acceptance criteria are in
-[docs/HUMAN_HANDOFF.md](docs/HUMAN_HANDOFF.md).
+Every run also saves a local trace to `runs/<run_id>.jsonl`, with one line per step or model call.
 
-## Layout
+### Design decisions worth knowing
+
+**The owner stays in control of the facts.** Budgets, quantities, rooms and renovation details come from form
+fields, not from guessing. The flat's completion date matters most, because it decides whether HDB's
+3-year bathroom rule applies, so the owner has to confirm it in the date field. A sentence in the free-text
+brief isn't enough.
+
+**When unsure, we ask.** If a renovation request isn't supported, or we don't know the work method or the
+room, the item is left pending for the owner to review. We never assume it belongs with the most common room
+or quietly pick the easiest option.
+
+**Prices are honest about what they don't know.**
+
+- Furniture prices are per unit, and delivery is charged once per retailer order.
+- Renovation estimates record quantity, unit, rate, source and the date they were checked. If any of that is
+  missing, the estimate is marked incomplete.
+- We only use dimensions that are clearly labelled (width, depth, height). Anything ambiguous is shown as
+  unknown rather than guessed.
+- Every offer shows the date its price was captured.
+
+## Data
+
+All data comes from frozen snapshots, so results are reproducible. Large files aren't committed; the scripts
+below rebuild them. [data/SOURCES.md](data/SOURCES.md) lists every source, its licence and when it was
+captured.
+
+```bash
+python -m uv run python data/scripts/fetch_abo.py              # Amazon Berkeley Objects metadata (~90 MB)
+python -m uv run python data/scripts/build_abo_subset.py       # furniture subset + images
+python -m uv run python data/scripts/collect_sg_catalog.py     # IKEA SG + Castlery -> data/sg_catalog.csv
+python -m uv run python data/scripts/build_index.py            # SQLite database + SigLIP image embeddings
+python -m uv run python data/scripts/make_retrieval_boards.py  # retrieval evaluation cases
+python -m uv run python data/scripts/fetch_unsplash_boards.py  # style evaluation boards (needs UNSPLASH_ACCESS_KEY)
+python -m uv run python data/scripts/fetch_hdb_sources.py      # HDB renovation guidelines behind the rule cards
+```
+
+`collect_sg_catalog.py` also accepts `--details-per-type N` to fetch a limited number of product pages per
+retailer and item type.
+
+The IKEA SG and Castlery prices are real. The overseas listings are made up purely to illustrate the
+landed-cost calculation and should never be read as real offers (more on this in
+[docs/SCOPE_CHANGES.md](docs/SCOPE_CHANGES.md)). Manual price checks, each with a date and source link, go in
+`data/catalog_overrides.csv`.
+
+## Tracing with Langfuse
+
+We self-host Langfuse to see exactly what the agents are doing.
+
+```bash
+docker compose up -d     # Langfuse at http://localhost:3000
+```
+
+Log in with `dev@renopilot.local` / `renopilot-local`. The first time it starts, Langfuse creates the project
+using the `LANGFUSE_*` keys from your `.env`, so the app and server always match. To turn tracing off, comment
+those keys out.
+
+Each conversation from the CLI, the Streamlit app or `evals/run_graph.py` appears as a single trace,
+including every pause for owner input. Inside it you can see:
+
+- the master agent's tool calls and each subagent step
+- the shopper agents and the tools they call (`search_catalog`, `product_details`, `landed_price`)
+- the deterministic tools underneath (catalog search, landed cost, basket total, comparable candidates, HDB
+  rule check)
+- every model call, with its prompt, reply and token count
+
+The CLI prints a link to the trace when it finishes. [docs/INTERFACES.md](docs/INTERFACES.md) describes how the
+master agent and subagents fit together.
+
+## Evaluation
+
+### Main suites
+
+| Command | What it measures | How it's graded |
+|---|---|---|
+| `python -m uv run python evals/run_retrieval.py --n-runs 5` | Recall@10 on boards built from known ABO products, compared with a text-only baseline and ablations | deterministic |
+| `python -m uv run python evals/run_style.py --n-runs 5 --baseline` | Style attribute F1 against human labellers | deterministic |
+| `python -m uv run python evals/run_graph.py --n-runs 5` | Whether the agent takes the right route at each decision point (including pricing edge cases: going over budget after landed costs, stale exchange rates, pricing switched off), LLM planner vs a fixed pipeline | trajectory assertions |
+| `python -m uv run python evals/run_pricing.py --n-runs 5` | Judging whether two products are comparable, on 28 real IKEA SG/Castlery pairs (17 matches, 11 hard negatives), plus 28 illustrative overseas pairs reported separately, against type-only and dimensions-only baselines | label match |
+| `python -m uv run pytest tests/test_landed_cost.py` | 30 landed-cost cases worked out by hand, exact to the cent | exact |
+
+### Compliance, end-to-end and shortlist quality
+
+```bash
+# Compliance: 55 rule questions, 20 adversarial requests, 10 prompt-injection cases
+python -m uv run python evals/run_compliance.py --n-runs 5
+python -m uv run python evals/run_compliance.py --live --n-runs 5        # with a real model
+python -m uv run python evals/run_compliance.py --baseline --n-runs 5    # same model, no tools or rule table
+
+# End-to-end: 10 complete shopping journeys on the SG catalog
+python -m uv run python evals/run_end_to_end.py --mode demo --n-runs 5
+python -m uv run python evals/run_end_to_end.py --mode live --n-runs 5              # real vision, planner, shoppers, pricing
+python -m uv run python evals/run_end_to_end.py --mode no_tools --n-runs 5          # baseline: no tools
+python -m uv run python evals/run_end_to_end.py --mode live --no-guard --n-runs 5   # ablation: HDB guard removed
+
+# Shortlist quality: real SG top-five results alongside a BM25 baseline
+python -m uv run python evals/run_shortlist.py --prepare --n-runs 5
+python -m uv run python evals/run_shortlist.py --score --n-runs 5
+```
+
+On macOS or Linux, `run_live_eval.sh` starts Langfuse if it isn't already running and then runs the live
+evaluations:
+
+```bash
+./run_live_eval.sh                           # live end-to-end
+./run_live_eval.sh compliance --n-runs 5     # live compliance suites
+./run_live_eval.sh cr07 e04                  # just the cases you name
+```
+
+Results are appended to `evals/results/*.jsonl`, so an interrupted run picks up where it left off. Each result
+is tagged with a fingerprint of the code, data and test case, and is recomputed if any of those change. A
+case only counts as passing all five runs (pass^5) if all five actually finished.
+
+### Limitations
+
+We want to be upfront about what these numbers do and don't show:
+
+- The compliance contract tests show that the rules are enforced in code. They don't show that a live model
+  resists prompt injection on its own.
+- ABO Recall@10 is a diagnostic for the retrieval step. Final shortlist quality on the SG catalog
+  (Precision@5) comes from `run_shortlist.py` and depends on human judgements.
+
+
+## Project structure
 
 ```
-renopilot/   config, llm (model per role), schemas + vocab + state (shared contracts), trace
-  catalog/   store (SQLite), embed (open_clip/SigLIP), search (hybrid + RRF), taxonomy (title -> type)
-  nodes/     intake, planner (master agent), style + shopper (ReAct subagent), guard (HDB rules), approval (+ ask_user), respond
-  demo.py    the offline demo world: models played by code, a made-up sample catalog
-  tools/     budget (deterministic money maths)
-  pricing/   rules, fx, landed_cost (deterministic), comparables (model-judged), node
-  graph.py   the LangGraph wiring;  run_cli.py  terminal demo
-data/        scripts/, sg_catalog.csv, boards/, labels/ (raw/, images/, index/ are rebuilt)
-evals/       harness.py (week-3 contract + pass^k + CI + resume), cases/, run_*.py
-tests/       offline unit + graph tests (fakes.py), live backend smoke tests
-docker-compose.yml   self-hosted Langfuse for traces
+renopilot/
+  config, llm (model per role), schemas + vocab + state (shared contracts), trace
+  basket.py      one offer per item; shared money rules for the UI, approval and export
+  compliance.py  HDB rule cards (data/compliance/hdb_rules.jsonl)
+  catalog/       store (SQLite), embed (open_clip/SigLIP), search (hybrid + RRF), taxonomy, fit
+  nodes/         intake, planner (master agent), style + shopper (ReAct subagents), guard (HDB rules),
+                 approval (+ ask_user), respond
+  pricing/       rules, fx, landed_cost (deterministic), comparables (model-judged), node
+  tools/         budget (deterministic money maths)
+  demo.py        the offline demo: models played by code over the frozen SG catalog
+  graph.py       LangGraph wiring
+  run_cli.py     command-line demo
+app/             Streamlit UI
+data/            scripts/, sg_catalog.csv, boards/, labels/, compliance/, pricing/
+                 (raw/, images/ and index/ are rebuilt by the scripts)
+evals/           harness.py (pass^k, confidence intervals, resume), cases/, run_*.py
+tests/           offline unit and graph tests, live backend smoke tests
+docs/            interfaces, scope changes, human handoff
+docker-compose.yml   self-hosted Langfuse
 ```

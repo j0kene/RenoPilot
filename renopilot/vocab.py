@@ -46,6 +46,7 @@ WORK_TYPE_OF = {
     "built_in_wardrobe": "built_in", "kitchen_cabinets": "built_in",
     "carpentry_feature_wall": "built_in", "false_ceiling": "built_in",
     "partition_wall_change": "built_in",
+    "other_renovation": "built_in",  # unsupported work stays visible and is referred for review
 }
 ITEM_TYPES = tuple(WORK_TYPE_OF)
 LOOSE_FURNITURE = tuple(t for t, w in WORK_TYPE_OF.items() if w == "loose_furniture")

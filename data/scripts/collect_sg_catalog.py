@@ -27,13 +27,14 @@ import sys
 import time
 from datetime import date
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from renopilot import config  # noqa: E402
 from renopilot.catalog.taxonomy import classify  # noqa: E402
+from renopilot.catalog.fit import axis_dimensions_cm, canonical_dimensions  # noqa: E402
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RenoPilot-CS621-student-project"}
 PAUSE_S = 1.5
@@ -166,6 +167,145 @@ def castlery(per_type: int, today: str) -> list[dict]:
     return rows
 
 
+def product_details(html: str, expected_url: str = "") -> dict[str, str]:
+    """Read structured facts only from the matching Product node; ambiguity stays unknown."""
+    def products(node):
+        if isinstance(node, list):
+            for item in node:
+                yield from products(item)
+        elif isinstance(node, dict):
+            typ = node.get("@type", [])
+            if "Product" in ([typ] if isinstance(typ, str) else typ or []):
+                yield node
+            for value in node.values():
+                if isinstance(value, (list, dict)):
+                    yield from products(value)
+
+    def empty():
+        return {"material": "", "dims": ""}
+
+    def url_key(value):
+        if isinstance(value, dict):
+            value = value.get("@id", "")
+        if not isinstance(value, str) or not value:
+            return ""
+        parsed = urlsplit(value)
+        return (parsed.netloc.lower(), parsed.path.rstrip("/").lower())
+
+    def measure(value):
+        unit_codes = {"CMT": "cm", "MMT": "mm", "INH": "in"}
+        unit_aliases = {"centimeter": "cm", "centimeters": "cm", "millimeter": "mm",
+                        "millimeters": "mm", "inch": "in", "inches": "in"}
+        if isinstance(value, dict):
+            unit = str(value.get("unitText", "")).lower()
+            unit = unit if unit in {"cm", "mm", "in"} else unit_aliases.get(unit) or unit_codes.get(
+                str(value.get("unitCode", "")).upper(), "")
+            value = value.get("value")
+            if not unit:
+                return ""
+            value = f"{value} {unit}"
+        if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+            return ""
+        match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*(cm|centimeters?|mm|millimeters?|in(?:ch(?:es)?)?|\")\s*", str(value), re.I)
+        return f"{match[1]} {unit_aliases.get(match[2].lower(), match[2].lower())}" if match else ""
+
+    for block in re.findall(r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', html, re.S | re.I):
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError:
+            continue
+        found = list(products(data))
+        if expected_url:
+            key = url_key(expected_url)
+            matches = [p for p in found if key and key in {url_key(p.get("url")), url_key(p.get("@id"))}]
+            if len(matches) == 1:
+                found = matches
+            elif not matches and len(found) == 1 and not (url_key(found[0].get("url")) or url_key(found[0].get("@id"))):
+                pass  # one unaddressed Product node is unambiguous
+            else:
+                continue
+        elif len(found) > 1:
+            continue
+        if len(found) != 1:
+            continue
+        for p in found:
+            material = p.get("material")
+            if isinstance(material, list):
+                material = ", ".join(x.strip() for x in material if isinstance(x, str) and x.strip())
+            elif not isinstance(material, str):
+                material = ""
+            dims = p.get("size") or p.get("dimensions") or ""
+            dims = dims if isinstance(dims, str) else ""
+            props = p.get("additionalProperty") or []
+            if isinstance(props, dict):
+                props = [props]
+            for prop in props:
+                if not isinstance(prop, dict):
+                    continue
+                name = str(prop.get("name", "")).lower()
+                raw_value = prop.get("value")
+                value = str(raw_value).strip() if isinstance(raw_value, (str, int, float)) and not isinstance(raw_value, bool) else ""
+                if value and not dims and any(word in name for word in ("dimension", "width", "size")):
+                    dims = value
+                if value and not material and "material" in name:
+                    material = value
+            dims = str(dims or "").strip()
+            canonical = canonical_dimensions(dims)
+            axes = {axis[0].upper(): value for axis, value in axis_dimensions_cm(dims).items()}
+            for axis, short in (("width", "W"), ("depth", "D"), ("height", "H")):
+                if short not in axes:
+                    value = measure(p.get(axis))
+                    if value:
+                        parsed = axis_dimensions_cm(canonical_dimensions(f"{short} {value}"))
+                        axes[short] = parsed.get(axis, 0)
+            labelled = " ".join(f"{axis} {axes[axis]:g} cm" for axis in ("W", "D", "H") if axis in axes)
+            return {"material": material.strip(), "dims": labelled or canonical or dims}
+    return empty()
+
+
+def apply_overrides(rows: list[dict], path: Path) -> int:
+    """Apply dated, source-linked human checks; a missing/blank field stays unknown."""
+    if not path.exists():
+        return 0
+    by_id = {r["id"]: r for r in rows}
+    updated = 0
+    with path.open(encoding="utf-8", newline="") as fh:
+        for override in csv.DictReader(fh):
+            row = by_id.get(override.get("id", ""))
+            checked = override.get("checked_at", "")
+            if not row or not override.get("source_url") or not checked:
+                continue
+            try:
+                date.fromisoformat(checked)
+            except ValueError:
+                continue
+            for field in ("colour", "material", "dims"):
+                if override.get(field, "").strip():
+                    row[field] = override[field].strip()
+                    updated += 1
+    return updated
+
+
+def enrich_details(rows: list[dict], per_type: int) -> int:
+    """Fetch at most N product pages per retailer and type, keeping structured evidence only."""
+    seen = {}
+    changed = 0
+    for row in rows:
+        key = (row["source"], row["item_type"])
+        if row["source"] not in ("ikea_sg", "castlery") or seen.get(key, 0) >= per_type:
+            continue
+        seen[key] = seen.get(key, 0) + 1
+        response = get(row["url"])
+        if not response:
+            continue
+        details = product_details(response.text, expected_url=row["url"])
+        for field, value in details.items():
+            if value and not row.get(field):
+                row[field] = value
+                changed += 1
+    return changed
+
+
 def retype(rows: list[dict]) -> int:
     """Re-type each row from its own title (categories leak: a lamp page lists both kinds).
     IKEA titles are "NAME type, image alt text": only the part before the comma is used."""
@@ -194,6 +334,8 @@ def cache_image(row: dict) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--per-type", type=int, default=8)
+    ap.add_argument("--details-per-type", type=int, default=0,
+                    help="Castlery product pages to inspect per item type (default: no extra requests)")
     ap.add_argument("--retype-only", action="store_true", help="re-type the existing CSV, no fetching")
     args = ap.parse_args()
     today = date.today().isoformat()
@@ -209,6 +351,10 @@ def main() -> None:
 
     print("IKEA SG"); rows = ikea(args.per_type, today)
     print("Castlery"); rows += castlery(args.per_type, today)
+
+    if args.details_per_type > 0:
+        print("Castlery details", enrich_details(rows, args.details_per_type), "fields")
+    print("catalog overrides", apply_overrides(rows, config.DATA / "catalog_overrides.csv"), "fields")
 
     print("retyped", retype(rows), "rows from their titles")
     seen, out = set(), []

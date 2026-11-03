@@ -32,7 +32,7 @@ RETRY = RetryPolicy(max_attempts=3, retry_on=is_transient)   # retry the node, n
 SERDE = JsonPlusSerializer(allowed_msgpack_modules=[
     ("renopilot.schemas", name) for name in
     ("ProjectProfile", "StyleProfile", "ItemSpec", "Product", "Suggestion", "Verdict",
-                 "PriceQuote", "PriceLine", "PricedAlternative")])
+                 "PriceQuote", "PriceLine", "PricedAlternative", "WorkDetails", "WorkEstimate")])
 
 
 def make_checkpointer():
